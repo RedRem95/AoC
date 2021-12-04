@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from AoC_Companion.Day import StarTask
@@ -35,9 +37,11 @@ def test_day02():
             res = res.get_result()
         assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} failed"
 
+
 def test_day03():
     day = Day03.Day03(year=2021)
-    data = day.construct_data_package(data="00100\n11110\n10110\n10111\n10101\n01111\n00111\n11100\n10000\n11001\n00010\n01010")
+    with open(os.path.join(os.path.dirname(__file__), "test_resources", "day03.txt"), "rb") as fin:
+        data = day.construct_data_package(data=fin.read().decode("utf-8"))
 
     expected = {
         StarTask.Task01: "198",
