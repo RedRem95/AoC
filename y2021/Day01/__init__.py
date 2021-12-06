@@ -1,8 +1,7 @@
-from typing import Any, Optional
 from time import time
+from typing import Any, Optional
 
 import numpy as np
-
 from AoC_Companion.Day import Day, TaskResult, StarTask
 
 
@@ -14,7 +13,7 @@ class Day01(Day):
 
     def run_t1(self, data: Any) -> Optional[TaskResult]:
         t1 = time()
-        res = self._count_inc(data[:-1] , data[1:])
+        res = self._count_inc(data[:-1], data[1:])
         t2 = time()
         return TaskResult(day=self, task=StarTask.Task01,
                           result=str(res),

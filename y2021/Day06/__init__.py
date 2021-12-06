@@ -3,6 +3,7 @@ import time
 from typing import Any, Optional, List, Dict
 
 import matplotlib.pyplot as plt
+import numpy as np
 from AoC_Companion.Day import Day, TaskResult, StarTask
 
 
@@ -26,7 +27,7 @@ class Day06(Day):
             f"Starting population: {sum(data)}"
         ]
         simulated_pops = self._sim(init_ages=data, days=days, ret_all=self._graphs)
-        final_population = sum(simulated_pops[-1].values())
+        final_population = np.sum(simulated_pops[-1])
         log.append(
             f"Final population: {final_population}"
         )
@@ -37,7 +38,7 @@ class Day06(Day):
             ax: plt.Axes
             fig.suptitle("Simulated Population")
             ax.set_title(f"{task.name} for {days} days")
-            ax.plot(list(range(len(simulated_pops))), [sum(x.values()) for x in simulated_pops])
+            ax.plot(simulated_pops.sum(axis=1))
             fig.savefig(os.path.join(os.path.dirname(__file__), f"pop_{task.value}.png"))
         return TaskResult(final_population, day=self, task=task, duration=t2 - t1, log=log)
 
@@ -48,22 +49,15 @@ class Day06(Day):
         pass
 
     @staticmethod
-    def _sim(init_ages: List[int], days: int, ret_all: bool = False) -> List[Dict[int, int]]:
-        z_m: Dict[int, int] = {x: 0 for x in range(9)}
-        m: List[Dict[int, int], Dict[int, int]] = [z_m.copy(), {}]
-        for d in init_ages:
-            m[0][d] += 1
-        ret: List[Dict[int, int]] = [m[0].copy()]
+    def _sim(init_ages: List[int], days: int, ret_all: bool = False) -> np.ndarray:
+        ages = np.zeros((9,), dtype=int)
+        for a in init_ages:
+            ages[a] += 1
+        ret: np.ndarray = np.zeros((days if ret_all else 1, ages.shape[0]), dtype=int)
         for i in range(days):
-            m[(i + 1) % 2] = z_m.copy()
-            for k, v in m[i % 2].items():
-                if k == 0:
-                    m[(i + 1) % 2][6] += v
-                    m[(i + 1) % 2][8] += v
-                else:
-                    m[(i + 1) % 2][k - 1] += v
-            if ret_all:
-                ret.append(m[(i + 1) % 2].copy())
-            else:
-                ret[0] = m[(i + 1) % 2].copy()
+            parents = ages[0]
+            ages[:-1] = ages[1:]
+            ages[6] += parents
+            ages[8] = parents
+            ret[i if ret_all else 0] = ages
         return ret
