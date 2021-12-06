@@ -61,3 +61,28 @@ class Day06(Day):
             ages[8] = parents
             ret[i if ret_all else 0] = ages
         return ret
+
+    @staticmethod
+    def _sim_v2(init_ages: List[int], days: int, ret_all: bool = False) -> np.ndarray:
+        """
+        Different implementation with rotating index.
+        Be careful since the indices in resulting array do not correspond with days until the fish create new fish.
+        You have to create the rotating index like days % 6 to get the amount of fish that will create new ones next.
+        The last two indices are alternating the young ones with the higher wait time until they will create some
+        themself
+
+        :param init_ages:
+        :param days:
+        :param ret_all:
+        :return:
+        """
+        ages = np.zeros((9,), dtype=int)
+        for a in init_ages:
+            ages[a] += 1
+        ret: np.ndarray = np.zeros((days if ret_all else 1, ages.shape[0]), dtype=int)
+        for i in range(days):
+            j = i % 6
+            m = 7 + (i % 2)
+            ages[j], ages[m] = ages[j] + ages[m], ages[j]
+            ret[i if ret_all else 0] = ages
+        return ret
