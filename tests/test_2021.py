@@ -103,3 +103,20 @@ def test_day06():
         if res is not None:
             res = res.get_result()
         assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} failed"
+
+
+def test_day07():
+    from y2021 import Day07
+    day = Day07.Day07(year=2021)
+    data = day.construct_data_package(data="16,1,2,0,4,2,7,1,2,14")
+
+    expected = {
+        StarTask.Task01: 37,
+        StarTask.Task02: 168
+    }
+
+    for task, expected_data in expected.items():
+        res = day.run(task=task, data=data)
+        if res is not None:
+            res = res.get_result()
+        assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} failed"
