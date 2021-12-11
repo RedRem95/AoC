@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Tuple, Set
+from typing import Any, Optional, List
 
 import numpy as np
 from AoC_Companion.Day import Day, TaskResult
@@ -54,12 +54,30 @@ class Day11(Day):
     @staticmethod
     def _do_step(data: np.ndarray) -> np.ndarray:
         data = data + 1
-        already_flashed: Set[Tuple[int, int]] = set()
+        flashed = np.zeros(shape=data.shape, dtype=bool)
         while True:
-            flash_points = [x for x in zip(*np.where(data > 9)) if x not in already_flashed]
-            if len(flash_points) <= 0:
+            new_flashes = np.logical_and(np.logical_not(flashed), data > 9)
+            if not new_flashes.any():
                 break
-            for i, j in flash_points:
-                already_flashed.add((i, j))
-                data[max(0, i - 1):min(data.shape[0], i + 2), max(0, j - 1):min(data.shape[1], j + 2)] += 1
+            flashed = np.logical_or(flashed, new_flashes)
+            for i in (-1, 0, 1):
+                d_view = data[:, :]
+                f_view = new_flashes[:, :]
+                if i > 0:
+                    d_view = d_view[i:, :]
+                    f_view = f_view[:-i, :]
+                elif i < 0:
+                    d_view = d_view[:i, :]
+                    f_view = f_view[-i:, :]
+                for j in (-1, 0, 1):
+                    d_view_2 = d_view[:, :]
+                    f_view_2 = f_view[:, :]
+                    if j > 0:
+                        d_view_2 = d_view[:, j:]
+                        f_view_2 = f_view[:, :-j]
+                    elif j < 0:
+                        d_view_2 = d_view[:, :j]
+                        f_view_2 = f_view[:, -j:]
+                    d_view_2[f_view_2] += 1
+
         return data
