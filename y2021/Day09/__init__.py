@@ -182,20 +182,20 @@ class Day09(Day):
         return lows
 
     @staticmethod
-    def _pt_in_data(data: np.ndarray, point: Tuple[int, int]):
+    def pt_in_data(data: np.ndarray, point: Tuple[int, int]):
         return all(0 <= pt < sh for pt, sh in zip(point, data.shape))
 
     @staticmethod
     def _flow(data: np.ndarray, seed: Tuple[int, int], wall_height: int = 9, flown: np.ndarray = None) -> np.ndarray:
         i, j = seed
-        if not Day09._pt_in_data(data=data, point=seed):
+        if not Day09.pt_in_data(data=data, point=seed):
             return flown
 
         if data[i, j] < wall_height and not flown[i, j]:
             if not flown[i, j]:
                 flown[i, j] = True
                 for i_n, j_n in [(i + _i, j + _j) for _i, _j in ((1, 0), (-1, 0), (0, 1), (0, -1))]:
-                    if Day09._pt_in_data(data=data, point=(i_n, j_n)) and data[i, j] < data[i_n, j_n]:
+                    if Day09.pt_in_data(data=data, point=(i_n, j_n)) and data[i, j] < data[i_n, j_n]:
                         flown = Day09._flow(data=data, seed=(i_n, j_n), wall_height=wall_height, flown=flown)
 
         return flown
