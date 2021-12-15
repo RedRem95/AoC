@@ -17,9 +17,36 @@ class Day15(Day):
         ret = np.array([[int(y) for y in x] for x in data], dtype=np.uint8)
         return ret
 
+    # noinspection PyUnresolvedReferences
     def run_t1(self, data: np.ndarray) -> Optional[TaskResult]:
-        cost = self.find_path(data=data, start=(0, 0), finish=(data.shape[0] - 1, data.shape[1] - 1))
-        return TaskResult(int(cost))
+        elements = int(np.prod(data.shape))
+        log = []
+        try:
+            from scipy.sparse import lil_matrix
+            from scipy.sparse.csgraph import dijkstra
+            graph = lil_matrix((elements, elements), dtype=data.dtype)
+            moves = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
+            for i in range(data.shape[0]):
+                for j in range(data.shape[1]):
+                    el = self.pt_to_idx(i=i, j=j, n=data.shape[0])
+                    for pi, pj in ((m1 + i, m2 + j) for m1, m2 in moves):
+                        if not Day09.pt_in_data(data=data, point=(pi, pj)):
+                            continue
+                        pel = self.pt_to_idx(i=pi, j=pj, n=data.shape[0])
+                        graph[el, pel] = data[pi, pj]
+            dist_matrix = dijkstra(csgraph=graph, directed=True, indices=0, return_predecessors=False, min_only=True)
+            cost = int(dist_matrix[-1])
+            log.append("Using scipy dijkstra")
+        except ImportError:
+            cost = self.find_path(data=data, start=(0, 0), finish=(data.shape[0] - 1, data.shape[1] - 1))
+            log.append("Using custom dijkstra")
+
+        log.extend([
+            f"Field has size of {data.shape[1]}x{data.shape[0]} => {elements} fields",
+            f"The fastest way over the field costs {cost}"
+        ])
+        return TaskResult(cost, log=log)
 
     def run_t2(self, data: np.ndarray) -> Optional[TaskResult]:
         factor = 5
@@ -30,18 +57,12 @@ class Day15(Day):
                 patch = data + i + j
                 patch[patch > 9] = patch[patch > 9] - 9
                 new_data[i * dw:(i + 1) * dw, j * dh:(j + 1) * dh] = patch
+        r = self.run_t1(data=new_data)
+        return TaskResult(r.get_result(), log=r.get_log())
 
-        # s_jonas_path = os.path.join(os.path.dirname(__file__), "Special_jonas.txt")
-        # print(s_jonas_path)
-        # with open(s_jonas_path, "wb") as f_out:
-        #     for i in range(new_data.shape[0]):
-        #         for j in range(new_data.shape[1]):
-        #             f_out.write(f"{new_data[i, j]}".encode("utf-8"))
-        #         f_out.write("\n".encode("utf-8"))
-        # exit()
-
-        cost = self.find_path(data=new_data, start=(0, 0), finish=(new_data.shape[0] - 1, new_data.shape[1] - 1))
-        return TaskResult(int(cost))
+    @staticmethod
+    def pt_to_idx(i: int, j: int, n: int) -> int:
+        return i * n + j
 
     @staticmethod
     def find_path(
