@@ -239,3 +239,4 @@ cython_debug/
 */Day*/input*.txt
 */Day*/*.png
 */Day*/*.gif
+*summary*.txt

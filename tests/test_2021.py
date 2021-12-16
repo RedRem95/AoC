@@ -264,3 +264,31 @@ def test_day15():
         if res is not None:
             res = res.get_result()
         assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} failed"
+
+
+def test_day16():
+    from y2021 import Day16
+    day = Day16.Day16(year=2021, create_summary=False)
+
+    expected = {
+        StarTask.Task01: [("8A004A801A8002F478", 16),
+                          ("620080001611562C8802118E34", 12),
+                          ("C0015000016115A2E0802F182340", 23),
+                          ("A0016C880162017C3686B18A3D4780", 31)],
+        StarTask.Task02: [("C200B40A82", 3),
+                          ("04005AC33890", 54),
+                          ("880086C3E88112", 7),
+                          ("CE00C43D881120", 9),
+                          ("D8005AC2A8F0", 1),
+                          ("F600BC2D8F", 0),
+                          ("9C005AC2F8F0", 0),
+                          ("9C0141080250320F1802104A08", 1)]
+    }
+
+    for task, expected_data_pairs in expected.items():
+        for data, expected_data in expected_data_pairs:
+            data_const = day.construct_data_package(data=data)
+            res = day.run(task=task, data=data_const)
+            if res is not None:
+                res = res.get_result()
+            assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} - {data} failed"
