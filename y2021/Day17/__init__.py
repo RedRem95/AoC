@@ -24,11 +24,22 @@ class Day17(Day):
         max_y = -np.inf
         for path in paths:
             max_y = max([max_y] + [pos[1] for pos in path])
-        return TaskResult(max_y)
+        return TaskResult(max_y, log=[
+            f"Yeeting the probe into the area span at "
+            f"({np.amin(data[0])}, {np.amin(data[1])}) "
+            f"w: {np.abs(data[0][0] - data[0][1])}, h: {np.abs(data[1][0] - data[1][1])}",
+            f"When you yeet with initial speed of {paths[0][2] - paths[0][0]} you can get a max height of {max_y}"
+        ])
 
     def run_t2(self, data: Tuple[_pt_type, _pt_type]) -> Optional[TaskResult]:
         paths = self.simulate_probe(initial=np.array((0, 0)), target_area=data, first=False)
-        return TaskResult(len(paths))
+        ret = len(paths)
+        return TaskResult(ret, log=[
+            f"Yeeting the probe into the area span at "
+            f"({np.amin(data[0])}, {np.amin(data[1])}) "
+            f"w: {np.abs(data[0][0] - data[0][1])}, h: {np.abs(data[1][0] - data[1][1])}",
+            f"There are {ret} possible ways to yeet the probe in the spot"
+        ])
 
     @staticmethod
     def simulate_probe(initial: _pt_type, target_area: Tuple[_pt_type, _pt_type], first: bool) -> List[List[_pt_type]]:
@@ -39,6 +50,8 @@ class Day17(Day):
         target_x, target_y = target_area
         target_x -= offset[0]
         target_y -= offset[1]
+        target_x = np.sort(target_x)
+        target_y = np.sort(target_y)
 
         x_direction = np.sign(target_x)
         mirror = np.ones_like(offset)
@@ -47,9 +60,9 @@ class Day17(Day):
         target_x *= mirror[0]
 
         min_x = 0
-        max_x = np.amax(target_x)
+        max_x = target_x[1]
 
-        min_y = np.amin(target_y)
+        min_y = target_y[0]
         max_y = max(200, min_y)
 
         possible_x = np.arange(start=min_x, stop=max_x + 1, step=1, dtype=int)
@@ -82,16 +95,16 @@ class Day17(Day):
 
     @staticmethod
     def in_target(position: _pt_type, target_area: Tuple[_pt_type, _pt_type]) -> bool:
-        return all(np.amin(target_area[i]) <= position[i] <= np.amax(target_area[i]) for i in range(position.shape[0]))
+        return all(target_area[i][0] <= position[i] <= target_area[i][1] for i in range(position.shape[0]))
 
     @staticmethod
     def can_still_hit(position: _pt_type, target_area: Tuple[_pt_type, _pt_type], speed: _pt_type) -> bool:
         target_x, target_y = target_area
-        if position[0] > np.amax(target_x):
+        if position[0] > target_x[1]:
             return False
-        if speed[0] == 0 and position[0] < np.amin(target_x):
+        if speed[0] == 0 and position[0] < target_x[0]:
             return False
-        if speed[1] < 0 and position[1] < np.amin(target_y):
+        if speed[1] < 0 and position[1] < target_y[0]:
             return False
 
         return True
