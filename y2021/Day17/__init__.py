@@ -50,7 +50,7 @@ class Day17(Day):
         max_x = np.amax(target_x)
 
         min_y = np.amin(target_y)
-        max_y = max(1000, min_y)
+        max_y = max(200, min_y)
 
         possible_x = np.arange(start=min_x, stop=max_x + 1, step=1, dtype=int)
         possible_y = np.arange(start=min_y, stop=max_y + 1, step=1, dtype=int)
