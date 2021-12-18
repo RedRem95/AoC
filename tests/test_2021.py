@@ -309,3 +309,21 @@ def test_day17():
         if res is not None:
             res = res.get_result()
         assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} failed"
+
+
+def test_day18():
+    from y2021 import Day18
+    day = Day18.Day18(year=2021)
+    with open(os.path.join(os.path.dirname(__file__), "test_resources", "day18.txt"), "rb") as fin:
+        data = day.construct_data_package(data=fin.read().decode("utf-8"))
+
+    expected = {
+        StarTask.Task01: 4140,
+        StarTask.Task02: 3993
+    }
+
+    for task, expected_data in expected.items():
+        res = day.run(task=task, data=data)
+        if res is not None:
+            res = res.get_result()
+        assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} failed"
