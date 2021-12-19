@@ -47,7 +47,10 @@ class Day19(Day):
         if self._data is None:
             self._data = self.find_scanners_and_probes(data=data)
         scanners, probes = self._data
-        return TaskResult(probes.shape[0])
+        log = [
+            f"There are {len(scanners)} scanners and {probes.shape[0]} probes",
+        ]
+        return TaskResult(probes.shape[0], log=log)
 
     def run_t2(self, data: Any) -> Optional[TaskResult]:
         if self._force_reset:
@@ -58,13 +61,20 @@ class Day19(Day):
         scanner_positions = np.array([x for x in scanners.keys()])
         combinations = itertools.combinations(range(scanner_positions.shape[0]), 2)
         distances = [(i, j, distance.cityblock(scanner_positions[i], scanner_positions[j])) for i, j in combinations]
+        distances.sort(key=lambda x: x[-1], reverse=True)
+        log = [
+            f"There are {len(scanners)} scanners and {probes.shape[0]} probes",
+            f"The maximum distance between is between scanner {distances[0][0]} and {distances[0][1]}",
+            f"  -> {distances[0][-1]} units"
+        ]
         if self._visualization:
             f_name = os.path.join(os.path.dirname(__file__), "map.png")
             fig = self.plot(scanners=scanners, probes=probes)
             fig.set_size_inches(15, 15)
             fig.set_dpi(300)
             fig.savefig(f_name)
-        return TaskResult(int(max(x[-1] for x in distances)))
+            log.append(f"Saved visualization to {f_name}")
+        return TaskResult(int(distances[0][-1]), log=log)
 
     def reset(self):
         self._data = None
