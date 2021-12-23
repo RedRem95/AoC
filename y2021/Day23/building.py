@@ -3,7 +3,10 @@ import math
 import queue
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Iterable, Tuple, Any, Union, Callable, Dict
+from typing import List, Optional, Iterable, Tuple, Any, Union, Callable, Dict, Set
+
+from scipy.sparse.csgraph import dijkstra
+from scipy.sparse import csr_matrix, lil_matrix
 
 
 class AmphipodTypes(Enum):
@@ -51,6 +54,14 @@ class Amphipod:
     def __copy__(self) -> "Amphipod":
         return self.__class__(typ=self.typ)
 
+    def __hash__(self):
+        return hash(self.typ)
+
+    @staticmethod
+    def parse_from_str(data: str) -> Iterable["Amphipod"]:
+        for d in data:
+            yield Amphipod(typ=AmphipodTypes.get_by_value(v=d))
+
 
 class RoomFullException(Exception):
     pass
@@ -82,6 +93,10 @@ class Room:
                 return len(self) - i + 1
         raise RoomFullException("Room is full")
 
+    def insert(self, idx: int, new_elements: List[Amphipod]):
+        for element in reversed(new_elements):
+            self.spaces.insert(idx, element)
+
     def room_happy(self) -> bool:
         for space in self.spaces:
             if space is not None and space.typ != self.occupant:
@@ -105,7 +120,7 @@ class Room:
                 return len(self) - i + 1
 
     def get(self, remove: bool = False) -> Optional[Tuple[int, "Amphipod"]]:
-        if not self.has_space() and self.room_happy():
+        if self.room_happy():
             return None
         for i in range(len(self)):
             if self.spaces[i] is not None:
@@ -122,6 +137,9 @@ class Room:
 
     def __repr__(self):
         return f"<{self.occupant.name}-Room: {str(self)}>"
+
+    def __hash__(self):
+        return hash((self.__class__.__name__, tuple(self.spaces), self.occupant))
 
 
 class HallwayTile:
@@ -167,6 +185,9 @@ class HallwayTile:
         ret.set(copy.copy(self.get()))
         ret.set_room(copy.copy(self.get_room()))
         return ret
+
+    def __hash__(self):
+        return hash((self.__class__.__name__, self.get(remove=False), self.get_room()))
 
 
 class Hallway:
@@ -264,36 +285,53 @@ class Hallway:
             ret._set_tile(idx=i, hallway_tile=copy.copy(tile))
         return ret
 
+    def __hash__(self):
+        return hash((self.__class__.__name__, tuple(self.hallway)))
+
 
 class State:
     _COUNTER = 0
 
     @classmethod
-    def solve(cls, init_state: "State") -> Optional["State"]:
+    def solve(cls, init_state: "State") -> Tuple[int, Optional["Hallway"]]:
 
         import tqdm
 
-        current_states: queue.Queue[StateCreationPackage] = queue.PriorityQueue()
-        current_states.put(StateCreationPackage(init_state.energy, lambda **x: init_state, {}))
+        states_to_do: queue.Queue[State] = queue.Queue()
+        states_to_do.put(init_state)
 
-        with tqdm.tqdm(desc="Running") as pb:
-            while not current_states.empty():
-                pb.update()
-                creation_package = current_states.get()
-                state_creator, data = creation_package.creation_function, creation_package.data
-                state = state_creator(**data)
-                if state.done():
-                    return state
-                pb.set_description(desc=f"Running on energy {state.energy}")
-                new_states = state.new_states()
-                # print("-" * 10, "FROM-STATE", "-" * 10)
-                # print(states[-1])
-                # print("-" * 10, " NEW-STATE", "-" * 10)
-                # print(f"\n{'-'*10}\n".join(str(x) for x in new_states))
-                for new_state in new_states:
-                    current_states.put(new_state)
+        collected_hallways: Dict[int, Tuple[int, Dict[int, int]]] = {hash(init_state.hallway): (0, {})}
 
-        return None
+        target_hash = None
+        origin_hash = hash(init_state)
+        target_hallway: Optional[Hallway] = None
+
+        while not states_to_do.empty():
+            state = states_to_do.get()
+            hallway_hash = hash(state.hallway)
+            if state.done():
+                target_hash = hallway_hash
+                target_hallway = state.hallway
+            for new_state_package in state.new_states():
+                new_state = new_state_package.creation_function(**new_state_package.data)
+                new_hallway_hash = hash(new_state.hallway)
+                if new_hallway_hash not in collected_hallways:
+                    collected_hallways[new_hallway_hash] = (len(collected_hallways), {})
+                    states_to_do.put(new_state)
+                else:
+                    pass
+                collected_hallways[hallway_hash][1][collected_hallways[new_hallway_hash][0]] = new_state.energy
+
+        max_id = max(x[0] for x in collected_hallways.values())
+        graph = lil_matrix((max_id + 1, max_id + 1), dtype=int)
+        for from_tos in collected_hallways.values():
+            from_id, tos = from_tos
+            for to_id, weight in tos.items():
+                graph[from_id, to_id] = weight
+        origin_id = collected_hallways[origin_hash][0]
+        target_id = collected_hallways[target_hash][0]
+        dist_matrix = dijkstra(csgraph=graph, directed=True, indices=origin_id, return_predecessors=False, min_only=True)
+        return int(dist_matrix[target_id]), target_hallway
 
     def __init__(self, hallway: Hallway, energy: int = 0):
         self.hallway = hallway
@@ -316,7 +354,6 @@ class State:
             for target_tile, target_room in potential_targets:
                 new_energy = (self.hallway.cost(candidate, target_tile) + target_room.place_cost())
                 new_energy *= element.typ.get_cost()
-                new_energy += self.energy
                 data = {"origin_idx": idx,
                         "target_idx": self.hallway.get_tile_idx(target_tile),
                         "hallway": self.hallway,
@@ -333,7 +370,7 @@ class State:
             tile_idx = self.hallway.get_tile_idx(tile)
             el_cost, el = room.get(remove=False)
             for target_idx, target_tile in potential_targets:
-                new_energy = (self.hallway.cost(tile, target_tile) + el_cost) * el.typ.get_cost() + self.energy
+                new_energy = (self.hallway.cost(tile, target_tile) + el_cost) * el.typ.get_cost()
                 data = {"origin_idx": tile_idx,
                         "target_idx": target_idx,
                         "hallway": self.hallway,
@@ -349,7 +386,7 @@ class State:
         move_element = new_hallway[origin_idx].get(remove=True)
         new_room = new_hallway[target_idx].get_room()
         new_room.place(move_element)
-        return State(hallway=hallway, energy=energy)
+        return State(hallway=new_hallway, energy=energy)
 
     @staticmethod
     def create_state_room(origin_idx: int, target_idx: int, hallway: Hallway, energy: int) -> "State":
@@ -394,6 +431,9 @@ class State:
         if not isinstance(other, State):
             return True
         return not self == other
+
+    def __hash__(self):
+        return hash(self.hallway)
 
 
 @dataclass(order=True)

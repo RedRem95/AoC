@@ -1,4 +1,5 @@
 import os
+import json
 
 from AoC_Companion.Day import StarTask
 
@@ -399,6 +400,26 @@ def test_day22():
 
     for task, expected_data in expected.items():
         res = day.run(task=task, data=data[task])
+        if res is not None:
+            res = res.get_result()
+        assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} failed"
+
+
+def test_day23():
+    from y2021 import Day23
+    with open(os.path.join(os.path.dirname(Day23.__file__), "config.json"), "rb") as fin:
+        config = json.load(fin)
+    day = Day23.Day23(year=2021, **config)
+    with open(os.path.join(os.path.dirname(__file__), "test_resources", "day23.txt"), "rb") as fin:
+        data = day.construct_data_package(data=fin.read().decode("utf-8"))
+
+    expected = {
+        StarTask.Task01: 12521,
+        StarTask.Task02: 44169
+    }
+
+    for task, expected_data in expected.items():
+        res = day.run(task=task, data=data)
         if res is not None:
             res = res.get_result()
         assert res == expected_data, f"{day.get_year()} - {day.get_name()} - {task.name} failed"

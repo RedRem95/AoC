@@ -7,8 +7,11 @@ from y2021.Day23.building import Hallway, Amphipod, AmphipodTypes, Room, State
 
 class Day23(Day):
 
-    def __init__(self, year: int):
+    def __init__(self, year: int, longer_rooms: Dict[str, str]):
         super().__init__(year)
+        if not all(len(x) for x in longer_rooms.values()):
+            raise Exception()
+        self.longer_rooms = {int(k): list(Amphipod.parse_from_str(data=v)) for k, v in longer_rooms.items()}
 
     def pre_process_input(self, data: Any) -> Any:
         data: List[str] = super().pre_process_input(data=data)
@@ -28,22 +31,28 @@ class Day23(Day):
                     if j not in room_stuff:
                         room_stuff[j] = []
                     room_stuff[j].append(Amphipod(typ=typ))
-        hallway = Hallway(size=hallway_len)
+        hallway = Hallway(size=hallway_len-1)
         for j, (idx, room) in enumerate(sorted(room_stuff.items(), key=lambda x: x[0])):
             room = Room(occupant=AmphipodTypes.get_by_idx(j), initial=list(reversed(room)))
             hallway.set_room(room=room, idx=idx)
         return hallway
 
     def run_t1(self, data: Hallway) -> Optional[TaskResult]:
+        return self._run(data=data)
+
+    def run_t2(self, data: Hallway) -> Optional[TaskResult]:
+        for i, (_, room) in enumerate(data.get_rooms()):
+            room.insert(1, self.longer_rooms[i])
+        return self._run(data=data)
+
+    @staticmethod
+    def _run(data: Hallway) -> TaskResult:
         state = State(hallway=data)
-        solved_state = State.solve(init_state=state)
+        solve_energy, solved_hallway = State.solve(init_state=state)
         log = []
         log.append("From:")
         log.extend(str(data).split("\n"))
         log.append("")
-        log.append("To:")
-        log.extend(str(solved_state).split("\n"))
-        return TaskResult(solved_state.energy, log=log)
-
-    def run_t2(self, data: Any) -> Optional[TaskResult]:
-        return TaskResult(None)
+        log.append(f"To (Used Energy: {solve_energy}):")
+        log.extend(str(solved_hallway).split("\n"))
+        return TaskResult(solve_energy, log=log)
