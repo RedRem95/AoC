@@ -1,9 +1,13 @@
 import itertools
 from collections import Counter
 from typing import Any, Optional, List, Tuple, Callable, Set, Union, Iterable
+import queue
 
 import numpy as np
 from AoC_Companion.Day import Day, TaskResult
+
+from .alu import ALU
+from .monad import MONAD
 
 
 class Day24(Day):
@@ -17,8 +21,11 @@ class Day24(Day):
         ret = data
         return ret
 
-    def run_t1(self, data: Any) -> Optional[TaskResult]:
-        return TaskResult(None)
+    def run_t1(self, data: List[str]) -> Optional[TaskResult]:
+        alu_core = ALU("w", "x", "y", "z")
+        monad = MONAD(alu_core=alu_core, instruction_lines=data)
+        valid_numbers = monad.find_valid_numbers()
+        return TaskResult(valid_numbers[-1])
 
     def run_t2(self, data: Any) -> Optional[TaskResult]:
         return TaskResult(None)
