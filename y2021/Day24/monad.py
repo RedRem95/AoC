@@ -57,13 +57,14 @@ class MONAD:
         # print("\n".join(str(x) for x in self._instructions))
         # print(", ".join(f"{k}: {self._instructions.get_register_idx(k)}" for k in ["w", "x", "y", "z"]))
         # exit()
-
-        with tqdm(desc=f"States: {len(states)}", leave=False, total=len(self._instructions)) as pb:
+        inps = 0
+        with tqdm(desc=f"States: {len(states)}, Inputs: {inps}/{self._number_len}", leave=False, total=len(self._instructions)) as pb:
             for instruction in self._instructions:
                 pb.update()
                 instruction: ALUInstruction
                 new_states: Dict[int, Tuple[np.ndarray, List[int]]] = {}
                 if instruction.operation_isinstance(Inp):
+                    inps += 1
                     for register, model_num in states.values():
                         for i in range(1, 10):
                             new_register = register.copy()
@@ -82,8 +83,9 @@ class MONAD:
                         h = hash(register.tostring())
                         if h not in new_states:
                             new_states[h] = (register, [])
-                        new_states[h][1].append(model_num)
+                        new_states[h][1].extend(model_num)
                 states = new_states
+                pb.set_description(desc=f"States: {len(states)}, Inputs: {inps}/{self._number_len}")
 
         valid_model_numbers: List[int] = []
         z_id = self._instructions.get_register_idx("z")
