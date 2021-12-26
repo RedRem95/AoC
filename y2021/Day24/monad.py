@@ -20,10 +20,12 @@ class MONAD:
         states: Dict[ALURegister, int] = {self._alu_core.get_register(): 0}
         # states.put((np.zeros(4, dtype=int), []))
 
-        with tqdm(self._instructions, desc=f"States: {len(states)}", leave=False) as pb:
+        inps = 0   
+        with tqdm(self._instructions, desc=f"States: {len(states)}, Inputs: {inps}/{self._number_len}", leave=False) as pb:
             for op, data in pb:
                 new_states: List[Tuple[ALURegister, int]] = []
                 if op == "inp":
+                    inps += 1
                     for register, model_num in states.items():
                         for i in range(1, 10):
                             new_register = register.__copy__()
@@ -37,7 +39,7 @@ class MONAD:
                 states.clear()
                 for register, model_num in sorted(new_states, key=lambda x: x[1]):
                     states[register] = model_num
-                pb.set_description(desc=f"States: {len(states)}")
+                pb.set_description(desc=f"States: {len(states)}, Inputs: {inps}/{self._number_len}")
 
         valid_model_numbers: List[int] = []
         while not states.empty():
