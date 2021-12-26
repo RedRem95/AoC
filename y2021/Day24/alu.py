@@ -1,20 +1,14 @@
-from typing import Dict, Callable, Tuple, Union, Iterator
+from typing import Dict, Callable, Tuple, Union, Iterator, List, Type
 from abc import ABC, abstractmethod
 import math
+from enum import Enum
 
 import numpy as np
 
 
 class ALU:
 
-    _COUNTER: int = 0
-
-    def __init__(self, *register_ids: str):
-        self._id = self.__class__._COUNTER
-        self.__class__._COUNTER += 1
-
-        self._default_register = ALURegister(*register_ids)
-
+    def __init__(self):
         self._input_operation = Inp()
         self._operations: Dict[str, ALUOperation] = {}
         self.register_fun(self._input_operation)
@@ -24,20 +18,10 @@ class ALU:
         self.register_fun(Mod())
         self.register_fun(Eql())
 
-    def execute(self, op: str, register_vals: Tuple[Union[str, int], ...], used_register: "ALURegister" = None):
-        if used_register is None:
-            used_register = self._default_register
-        operation = self._operations[op]
-        values = tuple(used_register[x] for x in register_vals)
-        result = operation(*values)
-        used_register[register_vals[0]] = result
+    def __getitem__(self, item: str) -> "ALUOperation":
+        return self._operations[item]
 
-    def read_register(self, register: str, used_register: np.ndarray = None):
-        if used_register is None:
-            used_register = self._default_register
-        return used_register[register]
-
-    def bind_input_memory(self, memory_retriever: Callable[["ALU"], int]):
+    def bind_input_memory(self, memory_retriever: Callable[[], int]):
         self._input_operation.bind_memory(memory_retriever=memory_retriever)
 
     def register_fun(self, operation: "ALUOperation", name: str = None):
@@ -48,62 +32,87 @@ class ALU:
         self._operations[name] = operation
 
     def reset(self):
-        for op in self._operations.values():
-            op.reset()
-        self._default_register.reset()
-
-    def get_register(self):
-        return self._default_register
-
-    def __str__(self, used_register: np.ndarray = None):
-        if used_register is None:
-            used_register = self._default_register
-        return f"ALU<{len(self._operations)} ops; {', '.join(f'{k}: {v}' for k, v in used_register)}>"
-
-    def __copy__(self):
-        ret = ALU()
-        ret._default_register = self._default_register.__copy__()
-        return ret
-
-    def __hash__(self):
-        return self._id
+        for fun in self._operations.values():
+            fun.reset()
 
 
-class ALURegister:
-    def __init__(self, *register_ids: str):
-        for register_id in register_ids:
+class ValueType(Enum):
+    Constant = 1
+    Register = 2
+
+
+class ALUInstructionList:
+    def __init__(self, *instructions: str, alu_core: ALU = None):
+        if alu_core is None:
+            alu_core = ALU()
+        self._alu_core = alu_core
+        self._instructions: List[ALUInstruction] = []
+        self._register_mapping: Dict[str, int] = {}
+
+        def _is_int(_x: str) -> bool:
             try:
-                float(register_id)
-                raise ValueError(f"Cant use a Numeric value for ALU-Register. Found {register_id}")
+                int(_x)
+                return True
             except ValueError:
-                pass
+                return False
 
-        self._register_id_to_id: Dict[str, int] = {x: i for i, x in enumerate(register_ids)}
-        self._register: np.ndarray = np.zeros(len(register_ids), dtype=int)
+        for inst in instructions:
+            op, *data = inst.split(" ")
+            operation = self._alu_core[op.strip()]
+            data_conv: List[Tuple[int, ValueType]] = []
+            for d in data:
+                d: str
+                if _is_int(d):
+                    data_conv.append((int(d), ValueType.Constant))
+                else:
+                    if d not in self._register_mapping:
+                        self._register_mapping[d] = len(self._register_mapping)
+                    data_conv.append((self._register_mapping[d], ValueType.Register))
+            self._instructions.append(ALUInstruction(op=operation, data=data_conv))
 
-    def __getitem__(self, item: Union[int, str]) -> int:
-        if item in self._register_id_to_id:
-            return self._register[self._register_id_to_id[item]]
-        return int(item)
+    def get_register_idx(self, key: str) -> int:
+        return self._register_mapping[key]
 
-    def __setitem__(self, key: str, value: int):
-        if key in self._register_id_to_id:
-            self._register[self._register_id_to_id[key]] = value
+    def get_suggested_register_size(self) -> int:
+        return len(self._register_mapping)
 
-    def __copy__(self):
-        ret = ALURegister(*[x for x, y in sorted(self._register_id_to_id.items(), key=lambda x: x[1])])
-        ret._register = self._register.copy()
-        return ret
+    def get_alu_core(self) -> ALU:
+        return self._alu_core
 
-    def __iter__(self) -> Iterator[Tuple[str, int]]:
-        for k, v in self._register_id_to_id.items():
-            yield k, self._register[v]
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
 
-    def __hash__(self):
-        return hash(tuple(self._register))
+    def __len__(self):
+        return len(self._instructions)
 
-    def reset(self):
-        self._register[:] = 0
+    def __getitem__(self, item):
+        return self._instructions[item]
+
+
+class ALUInstruction:
+
+    def __init__(self, op: "ALUOperation", data: List[Tuple[int, ValueType]]):
+        if len(data)< 1:
+            raise Exception("You cant execute an instruction without data")
+        if data[0][1] != ValueType.Register:
+            raise Exception("The first instruction parameter cant be a constant value. The result will be stored here")
+        self._op = op
+        self._data = data
+
+    def forward(self, register: np.ndarray) -> np.ndarray:
+        res = self._op(*[register[x] if t == ValueType.Register else x for x, t in self._data])
+        register[self._data[0][0]] = res
+        return register
+
+    def __call__(self, register: np.ndarray) -> np.ndarray:
+        return self.forward(register=register)
+
+    def operation_isinstance(self, typ: Type):
+        return isinstance(self._op, typ)
+
+    def __str__(self):
+        return f"{self._op.__class__.__name__.lower()}({', '.join(f'r({i})' if t == ValueType.Register else str(i) for i, t in self._data)})"
 
 
 class ALUOperation(ABC):

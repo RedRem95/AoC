@@ -22,10 +22,10 @@ class Day24(Day):
         return ret
 
     def run_t1(self, data: List[str]) -> Optional[TaskResult]:
-        alu_core = ALU("w", "x", "y", "z")
-        monad = MONAD(alu_core=alu_core, instruction_lines=data)
-        valid_numbers = monad.find_valid_numbers()
-        return TaskResult(valid_numbers[-1])
+        monad = MONAD(instruction_lines=data)
+        # valid_numbers = monad.find_valid_numbers()
+        biggest_num = monad.force_biggest_number()
+        return TaskResult(biggest_num)
 
     def run_t2(self, data: Any) -> Optional[TaskResult]:
         return TaskResult(None)
