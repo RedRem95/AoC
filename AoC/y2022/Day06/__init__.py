@@ -29,7 +29,7 @@ def task01(data, log: Callable[[AnyStr], None]):
 def task02(data: str, log: Callable[[AnyStr], None]):
     log(f"Got a datastream of length {len(data)}")
     count = 14
-    log(f"Finding Message header in datastream of length {count}")
+    log(f"Finding message header in datastream of length {count}")
     res = _detection(line=data, count=count)
     log(f"Found message header. It ends after {res} symbols")
     return res
