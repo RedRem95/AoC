@@ -1,4 +1,5 @@
 from typing import Callable, AnyStr, List, Tuple
+import os
 
 import numpy as np
 
@@ -19,17 +20,62 @@ def preproc_1(data):
     return ret
 
 
-@Task(year=2022, day=9, task=1)
-def task01(data: List[Tuple[str, int]], log: Callable[[AnyStr], None]):
+@Task(year=2022, day=9, task=1, extra_config={"draw": False})
+def task01(data: List[Tuple[str, int]], log: Callable[[AnyStr], None], draw: bool):
     simmed = _sim(sim_data=data, log=log, knot_count=1)
+    if draw:
+        fig, _ = _draw(traversed=simmed)
+        fig.savefig(os.path.join(os.path.dirname(__file__), f"{1} knot.png"), dpi=600)
     return len(set(simmed[-1]))
 
 
-@Task(year=2022, day=9, task=2, extra_config={"knot_count": 9})
-def task02(data, log: Callable[[AnyStr], None], knot_count: int):
+@Task(year=2022, day=9, task=2, extra_config={"knot_count": 9, "draw": False})
+def task02(data, log: Callable[[AnyStr], None], draw: bool, knot_count: int):
     simmed = _sim(sim_data=data, log=log, knot_count=knot_count)
+    if draw:
+        fig, _ = _draw(traversed=simmed)
+        fig.savefig(os.path.join(os.path.dirname(__file__), f"{knot_count} knots.png"), dpi=600)
     return len(set(simmed[-1]))
 
+
+def _draw(traversed: List[List[Tuple[int, int]]]):
+    import matplotlib.pyplot as plt
+    cols = int(np.ceil(np.sqrt(len(traversed))))
+    rows = int(np.ceil(len(traversed) / cols))
+    fig, _ax = plt.subplots(nrows=rows, ncols=cols)
+    ax_list = list(np.array([_ax]).ravel())
+    fig: plt.Figure
+    ax_list: List[plt.Axes]
+
+    for ax in ax_list:
+        ax.axis("off")
+
+    fig.set_size_inches(w=cols * 5, h=0.2 + rows * 5)
+    fig.suptitle(f"Travels of head and {len(traversed) - 1} knots")
+
+    for i, t in enumerate(traversed):
+        ax = ax_list[i]
+        ax.set_title('head' if i == 0 else f'{i}. knot' if i < len(traversed) - 1 else 'tail')
+        x, y = [_[0] for _ in t], [_[1] for _ in t]
+        min_x, max_x, min_y, max_y = min(x), max(x), min(y), max(y)
+        diff_x, diff_y = max_x - min_x, max_y - min_y
+
+        if diff_x > diff_y:
+            im_size = diff_x
+            x_off = -min_x
+            y_off = -min_y + (diff_x - diff_y) // 2
+        else:
+            im_size = diff_y
+            y_off = -min_y
+            x_off = -min_x + (diff_y - diff_x) // 2
+
+        t = [_add(x, (x_off, y_off)) for x in t]
+        im = np.zeros((im_size+1, im_size+1), dtype=bool)
+        for trav in t:
+            im[trav[0], trav[1]] = 1
+        ax.imshow(im, aspect="equal", interpolation=None)
+
+    return fig, ax_list
 
 def _sim(sim_data: List[Tuple[str, int]], log: Callable[[str], None], knot_count: int) -> List[List[Tuple[int, int]]]:
     if knot_count < 0:
