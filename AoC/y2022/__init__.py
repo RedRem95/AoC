@@ -6,6 +6,7 @@ from .Day05 import *
 from .Day06 import *
 from .Day07 import *
 from .Day08 import *
+from .Day09 import *
 
 
 from AoC_Companion.Preprocess import Preprocessor
