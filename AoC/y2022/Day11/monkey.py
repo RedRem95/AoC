@@ -215,15 +215,31 @@ class Monkey:
             if line.strip().startswith("Operation:"):
                 operation = Operation.parse(line=line)
             if line.strip().startswith("Test:"):
-                condition = DivisibleCondition.parse(line=line)
+                for c in Condition.__subclasses__():
+                    # noinspection PyBroadException
+                    try:
+                        condition = c.parse(line=line)
+                        break
+                    except Exception:
+                        pass
+                if condition is None:
+                    raise Exception()
                 for _ in range(2):
                     i += 1
                     c_line = lines[i].rstrip()
-                    if c_line.startswith("    If true:"):
-                        targets[True] = MonkeyTarget.parse(line=c_line)
-                    elif c_line.startswith("    If false:"):
-                        targets[False] = MonkeyTarget.parse(line=c_line)
-                    else:
+                    k = {
+                        "    If true": True,
+                        "    If false": False,
+                    }[c_line.split(":", 1)[0]]
+                    for c in Target.__subclasses__():
+                        # noinspection PyBroadException
+                        try:
+                            targets[k] = c.parse(line=c_line)
+                            break
+                        except Exception as e:
+                            # print(e)
+                            raise
+                    if k not in targets:
                         raise Exception()
 
             i += 1
