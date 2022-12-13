@@ -1,18 +1,12 @@
+import os
+from importlib import import_module
+
 from AoC_Companion.Preprocess import Preprocessor
 
-from .Day01 import *
-from .Day02 import *
-from .Day03 import *
-from .Day04 import *
-from .Day05 import *
-from .Day06 import *
-from .Day07 import *
-from .Day08 import *
-from .Day09 import *
-from .Day10 import *
-from .Day11 import *
-from .Day12 import *
-from .Day13 import *
+for k in os.listdir(os.path.dirname(__file__)):
+    if not os.path.isdir(os.path.join(os.path.dirname(__file__), k)) or k.startswith("_"):
+        continue
+    import_module(f".{k}", __name__)
 
 
 @Preprocessor(year=2022)

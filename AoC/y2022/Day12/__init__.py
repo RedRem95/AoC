@@ -1,14 +1,12 @@
-from typing import Callable, AnyStr, Tuple, List, Optional, Union
-from time import perf_counter
 import os
+from time import perf_counter
+from typing import Callable, AnyStr, Tuple, List, Union
 
 import numpy as np
-from scipy.sparse import coo_matrix as sparse_matrix
-from scipy.sparse.csgraph import shortest_path, dijkstra
-
 from AoC_Companion.Day import Task
-from AoC_Companion.test import TestData
 from AoC_Companion.Preprocess import Preprocessor
+from scipy.sparse import coo_matrix as sparse_matrix
+from scipy.sparse.csgraph import shortest_path
 
 
 @Preprocessor(year=2022, day=12)
@@ -36,7 +34,7 @@ def preproc_1(data):
     return np.array(ret), start, end
 
 
-@Task(year=2022, day=12, task=1, extra_config={"draw": True})
+@Task(year=2022, day=12, task=1, extra_config={"draw": False})
 def task01(data: Tuple[np.ndarray, Tuple[int, int], Tuple[int, int]], log: Callable[[AnyStr], None], draw: bool):
     height_map, start, end = data
     log(f"Map-size: {height_map.shape[1]}x{height_map.shape[0]}; start: {start}; end: {end}")
@@ -63,7 +61,7 @@ def task01(data: Tuple[np.ndarray, Tuple[int, int], Tuple[int, int]], log: Calla
     return ret
 
 
-@Task(year=2022, day=12, task=2, extra_config={"draw": True})
+@Task(year=2022, day=12, task=2, extra_config={"draw": False})
 def task02(data: Tuple[np.ndarray, Tuple[int, int], Tuple[int, int]], log: Callable[[AnyStr], None], draw: bool):
     height_map, start, end = data
     log(f"Map-size: {height_map.shape[1]}x{height_map.shape[0]} ({np.prod(height_map.shape)}); end: {end}")
