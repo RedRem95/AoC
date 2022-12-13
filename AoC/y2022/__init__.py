@@ -1,3 +1,5 @@
+from AoC_Companion.Preprocess import Preprocessor
+
 from .Day01 import *
 from .Day02 import *
 from .Day03 import *
@@ -10,9 +12,7 @@ from .Day09 import *
 from .Day10 import *
 from .Day11 import *
 from .Day12 import *
-
-
-from AoC_Companion.Preprocess import Preprocessor
+from .Day13 import *
 
 
 @Preprocessor(year=2022)
