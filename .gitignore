@@ -260,5 +260,6 @@ poetry.toml
 **/Day*/input*.txt
 **/Day*/*.png
 **/Day*/*.gif
+**/Day*/*.mp4
 *summary*.txt
 resources/
