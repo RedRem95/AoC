@@ -1,3 +1,4 @@
+import itertools
 from typing import Callable, AnyStr, Dict, Tuple, List
 
 from AoC_Companion.Day import Task
@@ -19,66 +20,107 @@ def preproc_1(data):
     return ret
 
 
-@Task(year=2022, day=16, task=1)
-def task01(data, log: Callable[[AnyStr], None]):
-    # best_flow, strategy = _search2(system=data, start_tine=30, start="AA")
-    best_flow = _search(system=data, time_remain=30, current="AA", open_valves={})
+@Task(year=2022, day=16, task=1, extra_config={"actors": [("AA", 30)]})
+def task01(data, log: Callable[[AnyStr], None], actors: List[Tuple[str, int]]):
+    best_flow, best_strategy = _find_flow(system=data, log=log, actors=actors)
     return best_flow
 
 
-@Task(year=2022, day=16, task=2)
-def task02(data, log: Callable[[AnyStr], None]):
-    # create the result for day 1 task 2
-    return 2
+@Task(year=2022, day=16, task=2, extra_config={"actors": [("AA", 26), ("AA", 26)]})
+def task02(data, log: Callable[[AnyStr], None], actors: List[Tuple[str, int]]):
+    best_flow, best_strategy = _find_flow(system=data, log=log, actors=actors)
+    return best_flow
 
 
-def _search2(system: Dict[str, Tuple[int, List[str]]], start_tine: int, start: str) -> Tuple[int, List[str]]:
-    current_strategies: List[Tuple[int, str, int, List[str]]] = [(0, start, start_tine, [])]
-    while any(x[2] > 0 for x in current_strategies):
-        current_strategies.sort(key=lambda x: (len(x[3]), x[0], -x[2]))
-        current_flow, current, time_remain, open_strategy = current_strategies.pop()
-        if time_remain <= 0:
-            return current_flow, open_strategy
-            pass
-        current_valve, next_options = system[current]
-        if current not in open_strategy:
-            current_strategies.append(
-                (current_flow + (time_remain - 1) * current_valve, current, time_remain - 1, open_strategy + [current])
-            )
-        for n in next_options:
-            current_strategies.append(
-                (current_flow, n, time_remain - 1, open_strategy)
-            )
-    current_strategies.sort(key=lambda x: x[0])
-    best = current_strategies[-1]
-    return best[0], best[-1]
+def _find_flow(
+        system: Dict[str, Tuple[int, List[str]]], actors: List[Tuple[str, int]], log: Callable[[str], None]
+) -> Tuple[int, Dict[str, int]]:
+    log(f"There are {len(actors)} actors going to close valves")
+    for i, (a, t) in enumerate(actors):
+        log(f"{i:4d}: Starting at {a:2s} having {t}s")
+    paths = _interesting_paths(system=system)
+    log(f"There are {len(system)} valves")
+    log(f"There are {sum(len(x) for x in paths.values())} interesting paths to use to get to open valves")
+    best_flow, best_strategy = _search(
+        system=system,
+        actors=actors,
+        open_valves={},
+        paths=paths,
+    )
+    log(f"You can achieve the best flow of {best_flow} by closing")
+    for v, t in sorted(best_strategy.items(), key=lambda x: x[1], reverse=True):
+        log(f"Closing {v:2s} at {t:2d} => {system[v][0] * t:d}")
+    return best_flow, best_strategy
+
+
+def _interesting_paths(system: Dict[str, Tuple[int, List[str]]]) -> Dict[str, Dict[str, int]]:
+    ret = {}
+    for start in system.keys():
+        paths = _find_paths(system=system, start=start)
+        ret[start] = {k: v for k, v in paths.items() if system[k][0] > 0}
+    return ret
+
+
+def _find_paths(system: Dict[str, Tuple[int, List[str]]], start: str) -> Dict[str, int]:
+    ret = {}
+    next_neighbors = [(x, 1) for x in system[start][1]]
+    while len(next_neighbors) > 0:
+        current, dist = next_neighbors.pop(0)
+        if current in ret:
+            continue
+        ret[current] = dist
+        next_neighbors.extend([(x, dist + 1) for x in system[current][1]])
+    return ret
 
 
 def _search(
-        system: Dict[str, Tuple[int, List[str]]], time_remain: int, current: str, open_valves: Dict[str, int]
+        system: Dict[str, Tuple[int, List[str]]],
+        actors: List[Tuple[str, int]],
+        open_valves: Dict[str, int],
+        paths: Dict[str, Dict[str, int]],
 ) -> Tuple[int, Dict[str, int]]:
-    if time_remain <= 0:
+    if all(current[1] <= 0 for current in actors) or all(current[0] in open_valves for current in actors):
         return _sum_flow(system=system, strategy=open_valves), open_valves
 
-    best_flow, best_strategy = 0, {}
+    for i in range(len(actors)):
+        current, time_remain = actors[i]
+        if time_remain > 0 and system[current][0] > 0 and current not in open_valves:
+            actors[i] = (current, time_remain - 1)
+            open_valves[current] = time_remain - 1
+    best_flow = _sum_flow(system=system, strategy=open_valves)
+    best_strategy = open_valves
 
-    # open_valve
-    if current not in open_valves and system[current][0] > 0:
-        _open_valves = open_valves.copy()
-        _open_valves[current] = time_remain - 1
-        _flow, _strategy = _search(system=system, time_remain=time_remain - 1, current=current,
-                                   open_valves=_open_valves)
+    combinations = (x for x in itertools.product(*[paths[x].keys() for x in (y[0] for y in actors)]) if
+                    len(x) == 1 or len(set(x)) == len(actors))
+    combinations = (x for x in combinations if not any(_n in open_valves for _n in x))
+    # print(len(combinations))
+
+    for n in combinations:
+        next_actors = [
+            (_n, time_remain - paths[current][_n]) for (current, time_remain), _n in zip(actors, n)
+        ]
+        _flow, _strategy = _search(
+            system=system,
+            actors=next_actors,
+            open_valves=open_valves.copy(),
+            paths=paths
+        )
         if _flow > best_flow:
             best_flow = _flow
-            best_strategy = best_flow
-
-    for n in system[current][1]:
-        _flow, _strategy = _search(system=system, time_remain=time_remain - 1, current=n, open_valves=open_valves)
-        if best_strategy > best_flow:
-            best_flow = _flow
-            best_strategy = best_flow
+            best_strategy = _strategy
 
     return best_flow, best_strategy
+
+
+def _create_combinations(base: List[str], n: int) -> List[List[str]]:
+    if n <= 0:
+        return []
+    ret = []
+    for i in range(len(base)):
+        curr_base = base.copy()
+        current = curr_base.pop(i)
+        ret.extend([current] + x for x in _create_combinations(base=curr_base, n=n - 1))
+    return ret
 
 
 def _sum_flow(system: Dict[str, Tuple[int, List[str]]], strategy: Dict[str, int]) -> int:
