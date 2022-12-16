@@ -9,8 +9,7 @@ from AoC_Companion.Preprocess import Preprocessor
 @Preprocessor(year=2022, day=15)
 def preproc_1(data):
     ret = []
-    for i in range(len(data)):
-        line = data[i]
+    for line in data:
         line = line.strip()
         if len(line) <= 0:
             continue
