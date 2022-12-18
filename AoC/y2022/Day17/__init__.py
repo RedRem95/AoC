@@ -1,5 +1,5 @@
 import enum
-from typing import Callable, AnyStr, List, Tuple, Dict
+from typing import Callable, AnyStr, List, Tuple, Dict, Optional
 
 from AoC_Companion.Day import Task
 from AoC_Companion.Preprocess import Preprocessor
@@ -57,26 +57,17 @@ def task01(data, log: Callable[[AnyStr], None], rocks, cave_width, left_spawn, s
     "rocks": _Rocks, "cave_width": 7, "left_spawn": 2, "spawn_count": 1000000000000, "spawn_height": 3
 })
 def task02(data, log: Callable[[AnyStr], None], rocks, cave_width, left_spawn, spawn_count, spawn_height):
-    winds = []
-    for _ in range(100):
-        winds.extend(data)
-    winds = _find_pattern(pattern_list=winds)
-    if len(winds) < len(data):
-        log(f"Found pattern of length {len(winds)} vs {len(data)}")
-    else:
-        winds = data
-        log(f"Did not find an alternative pattern")
-    cave, spawned_rocks = _sim_rocks(
+    tower_height, spawned_rocks = _sim_rocks(
         cave_width=cave_width,
         left_spawn=left_spawn,
         spawn_count=spawn_count,
         spawn_height=spawn_height,
         rocks=rocks,
-        winds=winds,
+        winds=data,
         log=log,
         draw=False,
     )
-    tower_height = max([k[1] for k, v in cave.items() if v == 1] + [0])
+    log(f"Spawned {spawned_rocks} rocks")
     return tower_height
 
 
@@ -89,6 +80,7 @@ def _sim_rocks(
 
     rocks_meta = [(rock, _get_rock_meta(rock=rock)) for rock in rocks]
     tower_height = 0
+    delta_tower_height_collection = []
     drop_height_collection = []
     j = 0
     for i in tqdm(range(spawn_count), total=spawn_count, desc="Falling rocks", unit="r", leave=False):
@@ -119,7 +111,10 @@ def _sim_rocks(
                 rocks_fixed = True
                 cave.update({k: 1 for k in falling_rocks})
                 falling_rocks = []
-                tower_height = max([k[1] for k, v in cave.items() if v == 1] + [0])
+                new_tower_height = max([k[1] for k, v in cave.items() if v == 1] + [0])
+                tower_height_diff = new_tower_height - tower_height
+                tower_height = new_tower_height
+                delta_tower_height_collection.append(tower_height_diff)
                 drop_height_collection.append(current_drop_height)
             else:
                 falling_rocks = _falling_rocks
@@ -132,10 +127,16 @@ def _sim_rocks(
             j += 1
             if rocks_fixed:
                 break
-        pattern_list = _find_pattern(drop_height_collection)
-        if len(pattern_list) != len(drop_height_collection):
-            log(f"{len(pattern_list)}, {len(drop_height_collection)}")
-            exit()
+        if (i + 1) % len(rocks_meta) == 0:
+            pattern = _find_pattern(pattern_list=delta_tower_height_collection,
+                                    min_occurrence=2, min_pattern_length=10)
+            if pattern is not None:
+                log(f"Found pattern after {i + 1} rocks")
+                before_pattern = delta_tower_height_collection[:-len(pattern) * 2]
+                patterned_rest = spawn_count - len(before_pattern)
+                full_pattern_count = patterned_rest // len(pattern)
+                rest = patterned_rest % len(pattern)
+                return sum(before_pattern) + full_pattern_count * sum(pattern) + sum(pattern[:rest]), spawn_count
 
     return max([k[1] for k, v in cave.items() if v == 1] + [0]), spawn_count
 
@@ -182,11 +183,15 @@ def _spawn_position(
     return left_spawn - rock_meta[0][0], tower_height + spawn_height - rock_meta[1][0] + 1
 
 
-def _find_pattern(pattern_list: List) -> List:
-    for i in range(1, len(pattern_list), 1):
-        if len(pattern_list) % i == 0:
-            chunks = [pattern_list[j*i:(j+1)*i] for j in range(len(pattern_list) // i)]
-            if all(chunks[0] == chunk for chunk in chunks[1:]):
-                return chunks[0]
-
-    return pattern_list
+def _find_pattern(pattern_list: List, min_occurrence: int, min_pattern_length: int, max_pattern_length: int = None) -> \
+        Optional[List]:
+    if max_pattern_length is None:
+        max_pattern_length = float("inf")
+    if min_occurrence <= 1 or min_pattern_length <= 0:
+        raise Exception()
+    for i in range(min_pattern_length, int(min(len(pattern_list) // min_occurrence, max_pattern_length) + 1), 1):
+        part = pattern_list[-i:]
+        check = all(part == pattern_list[-i * (j + 1):-i * j] for j in range(1, min_occurrence, 1))
+        if check:
+            return part
+    return None
