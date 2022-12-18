@@ -39,7 +39,7 @@ def preproc_1(data):
     "rocks": _Rocks, "cave_width": 7, "left_spawn": 2, "spawn_count": 2022, "spawn_height": 3
 })
 def task01(data, log: Callable[[AnyStr], None], rocks, cave_width, left_spawn, spawn_count, spawn_height):
-    cave = _sim_rocks(
+    tower_height, spawned_rocks = _sim_rocks(
         cave_width=cave_width,
         left_spawn=left_spawn,
         spawn_count=spawn_count,
@@ -49,7 +49,7 @@ def task01(data, log: Callable[[AnyStr], None], rocks, cave_width, left_spawn, s
         log=log,
         draw=False,
     )
-    tower_height = max([k[1] for k, v in cave.items() if v == 1] + [0])
+    log(f"Spawned {spawned_rocks} rocks")
     return tower_height
 
 
@@ -57,13 +57,22 @@ def task01(data, log: Callable[[AnyStr], None], rocks, cave_width, left_spawn, s
     "rocks": _Rocks, "cave_width": 7, "left_spawn": 2, "spawn_count": 1000000000000, "spawn_height": 3
 })
 def task02(data, log: Callable[[AnyStr], None], rocks, cave_width, left_spawn, spawn_count, spawn_height):
-    cave = _sim_rocks(
+    winds = []
+    for _ in range(100):
+        winds.extend(data)
+    winds = _find_pattern(pattern_list=winds)
+    if len(winds) < len(data):
+        log(f"Found pattern of length {len(winds)} vs {len(data)}")
+    else:
+        winds = data
+        log(f"Did not find an alternative pattern")
+    cave, spawned_rocks = _sim_rocks(
         cave_width=cave_width,
         left_spawn=left_spawn,
         spawn_count=spawn_count,
         spawn_height=spawn_height,
         rocks=rocks,
-        winds=data,
+        winds=winds,
         log=log,
         draw=False,
     )
@@ -74,18 +83,20 @@ def task02(data, log: Callable[[AnyStr], None], rocks, cave_width, left_spawn, s
 def _sim_rocks(
         cave_width: int, left_spawn: int, spawn_height: int, log: Callable[[str], None], spawn_count: int,
         rocks: List[List[Tuple[int, int]]], winds: List[_JetDirection], draw: bool,
-) -> Dict[Tuple[int, int], int]:
+) -> Tuple[int, int]:
     from tqdm import tqdm
     cave = {}
 
     rocks_meta = [(rock, _get_rock_meta(rock=rock)) for rock in rocks]
     tower_height = 0
+    drop_height_collection = []
     j = 0
     for i in tqdm(range(spawn_count), total=spawn_count, desc="Falling rocks", unit="r", leave=False):
         rock, rock_meta = rocks_meta[i % len(rocks_meta)]
         spawn_pos = _spawn_position(tower_height=tower_height, left_spawn=left_spawn,
                                     spawn_height=spawn_height, rock_meta=rock_meta)
         falling_rocks = [_add_tpl(t1=spawn_pos, t2=rock_piece) for rock_piece in rock]
+        current_drop_height = 0
         if draw:
             log(f"{'-' * 10}{i:^3d}{'-' * 10}")
             log(f"Spawn")
@@ -109,8 +120,10 @@ def _sim_rocks(
                 cave.update({k: 1 for k in falling_rocks})
                 falling_rocks = []
                 tower_height = max([k[1] for k, v in cave.items() if v == 1] + [0])
+                drop_height_collection.append(current_drop_height)
             else:
                 falling_rocks = _falling_rocks
+                current_drop_height += 1
             if draw and True:
                 log(f"After drop")
                 _cave = cave.copy()
@@ -119,11 +132,12 @@ def _sim_rocks(
             j += 1
             if rocks_fixed:
                 break
-        if i >= 3:
-            # exit()
-            pass
+        pattern_list = _find_pattern(drop_height_collection)
+        if len(pattern_list) != len(drop_height_collection):
+            log(f"{len(pattern_list)}, {len(drop_height_collection)}")
+            exit()
 
-    return cave
+    return max([k[1] for k, v in cave.items() if v == 1] + [0]), spawn_count
 
 
 def _add_tpl(t1: Tuple[int, int], t2: Tuple[int, int]) -> Tuple[int, int]:
@@ -166,3 +180,13 @@ def _spawn_position(
         rock_meta: Tuple[Tuple[int, int], Tuple[int, int]],
 ) -> Tuple[int, int]:
     return left_spawn - rock_meta[0][0], tower_height + spawn_height - rock_meta[1][0] + 1
+
+
+def _find_pattern(pattern_list: List) -> List:
+    for i in range(1, len(pattern_list), 1):
+        if len(pattern_list) % i == 0:
+            chunks = [pattern_list[j*i:(j+1)*i] for j in range(len(pattern_list) // i)]
+            if all(chunks[0] == chunk for chunk in chunks[1:]):
+                return chunks[0]
+
+    return pattern_list
