@@ -5,14 +5,14 @@ from typing import Callable, AnyStr, List, Dict, Set, Tuple
 from AoC_Companion.Day import Task
 from AoC_Companion.Preprocess import Preprocessor
 
-blizz_directions = {
+_BLIZZ_DIRECTIONS = {
     "^": (0, -1),
     "v": (0, 1),
     "<": (-1, 0),
     ">": (1, 0),
 }
 
-move_directions = [
+_MOVE_DIRECTIONS = [
     (0, -1),
     (0, 1),
     (0, 0),
@@ -35,8 +35,8 @@ def preproc_1(data: List[str]):
         if len(line) <= 0:
             continue
         for x, c in enumerate(line):
-            if c in blizz_directions:
-                blizzards.append(((x, y), blizz_directions[c]))
+            if c in _BLIZZ_DIRECTIONS:
+                blizzards.append(((x, y), _BLIZZ_DIRECTIONS[c]))
             elif c == "#":
                 valley.add((x, y))
             elif c == ".":
@@ -121,7 +121,7 @@ def _sim_valley(
         blizz_positions = set(x[0] for x in blizzards)
         proposed_movements = {}
         for pos, cost in current_positions.items():
-            for pot_pos in (_tpl_add(t1=pos, t2=x) for x in move_directions):
+            for pot_pos in (_tpl_add(t1=pos, t2=x) for x in _MOVE_DIRECTIONS):
                 if pot_pos in valley:
                     continue
                 if pot_pos in blizz_positions:
@@ -179,7 +179,7 @@ def _print_valley(valley: _T_VALLEY, blizzards: _T_BLIZZARD, cur_pos: Tuple[int,
             if pt in blizzard_dict:
                 blizz_dirs = blizzard_dict[pt]
                 if len(blizz_dirs) == 1:
-                    c = [x for x, y in blizz_directions.items() if y == blizz_dirs[0]][0]
+                    c = [x for x, y in _BLIZZ_DIRECTIONS.items() if y == blizz_dirs[0]][0]
                 else:
                     c = str(len(blizz_dirs))
             if cur_pos is not None and pt == cur_pos:
@@ -191,7 +191,3 @@ def _print_valley(valley: _T_VALLEY, blizzards: _T_BLIZZARD, cur_pos: Tuple[int,
 
 def _tpl_add(t1: Tuple[int, int], t2: Tuple[int, int]) -> Tuple[int, int]:
     return t1[0] + t2[0], t1[1] + t2[1]
-
-
-def _tpl_dist(t1: Tuple[int, int], t2: Tuple[int, int]) -> int:
-    return abs(t1[0] - t2[0]) + abs(t1[1] - t2[1])
