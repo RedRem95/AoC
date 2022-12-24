@@ -79,12 +79,14 @@ def _search(
         open_valves: Dict[str, int],
         paths: Dict[str, Dict[str, int]],
 ) -> Tuple[int, Dict[str, int]]:
-    if all(current[1] <= 0 for current in actors) or all(current[0] in open_valves for current in actors):
+    if any(current[1] <= 0 for current in actors) or any(current[0] in open_valves for current in actors):
         return _sum_flow(system=system, strategy=open_valves), open_valves
 
     for i in range(len(actors)):
         current, time_remain = actors[i]
-        if time_remain > 0 and system[current][0] > 0 and current not in open_valves:
+        if time_remain > 0 and system[current][0] > 0:
+            if current in open_valves:
+                raise Exception()
             actors[i] = (current, time_remain - 1)
             open_valves[current] = time_remain - 1
     best_flow = _sum_flow(system=system, strategy=open_valves)
