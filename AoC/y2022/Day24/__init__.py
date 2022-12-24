@@ -75,7 +75,7 @@ def task02(data, log: Callable[[AnyStr], None], num_tours: int):
         if first_start is None:
             first_start = finish
         ret += r
-        log(f"  -> {i + 1:d}. tour from {finish} to {start} took {timedelta(minutes=r)}")
+        log(f"  -> {i + 1:{len(str(num_tours))}d}. tour from {finish} to {start} took {timedelta(minutes=r)}")
     log(f"The {num_tours} tours from {first_start} to {start} took {timedelta(minutes=ret)}")
     return ret
 
