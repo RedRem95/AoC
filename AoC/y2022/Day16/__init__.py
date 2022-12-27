@@ -3,6 +3,7 @@ from typing import Callable, AnyStr, Dict, Tuple, List
 
 from AoC_Companion.Day import Task
 from AoC_Companion.Preprocess import Preprocessor
+from tqdm import tqdm
 
 
 @Preprocessor(year=2022, day=16)
@@ -41,12 +42,14 @@ def _find_flow(
     paths = _interesting_paths(system=system)
     log(f"There are {len(system)} valves")
     log(f"There are {sum(len(x) for x in paths.values())} interesting paths to use to get to open valves")
-    best_flow, best_strategy = _search(
-        system=system,
-        actors=actors,
-        open_valves={},
-        paths=paths,
-    )
+    with tqdm(desc="Searching paths", total=0, leave=False) as pb:
+        best_flow, best_strategy = _search(
+            system=system,
+            actors=actors,
+            open_valves={},
+            paths=paths,
+            pb=pb,
+        )
     log(f"You can achieve the best flow of {best_flow} by closing")
     for v, t in sorted(best_strategy.items(), key=lambda x: x[1], reverse=True):
         log(f"Closing {v:2s} at {t:2d} => {system[v][0] * t:d}")
@@ -78,6 +81,7 @@ def _search(
         actors: List[Tuple[str, int]],
         open_valves: Dict[str, int],
         paths: Dict[str, Dict[str, int]],
+        pb: tqdm
 ) -> Tuple[int, Dict[str, int]]:
     if any(current[1] <= 0 for current in actors) or any(current[0] in open_valves for current in actors):
         return _sum_flow(system=system, strategy=open_valves), open_valves
@@ -94,10 +98,12 @@ def _search(
 
     combinations = (x for x in itertools.product(*[paths[x].keys() for x in (y[0] for y in actors)]) if
                     len(x) == 1 or len(set(x)) == len(actors))
-    combinations = (x for x in combinations if not any(_n in open_valves for _n in x))
+    combinations = [x for x in combinations if not any(_n in open_valves for _n in x)]
     # print(len(combinations))
 
+    pb.total += len(combinations)
     for n in combinations:
+        pb.update()
         next_actors = [
             (_n, time_remain - paths[current][_n]) for (current, time_remain), _n in zip(actors, n)
         ]
@@ -105,7 +111,8 @@ def _search(
             system=system,
             actors=next_actors,
             open_valves=open_valves.copy(),
-            paths=paths
+            paths=paths,
+            pb=pb,
         )
         if _flow > best_flow:
             best_flow = _flow
