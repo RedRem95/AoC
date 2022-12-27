@@ -1,7 +1,6 @@
 from typing import Callable, AnyStr
 
 from AoC_Companion.Day import Task
-from AoC_Companion.test import TestData
 from AoC_Companion.Preprocess import Preprocessor
 
 from .snafu import from_snafu, to_snafu
@@ -14,13 +13,14 @@ def preproc_1(data):
 
 @Task(year=2022, day=25, task=1)
 def task01(data, log: Callable[[AnyStr], None]):
-    _ = from_snafu(value="2=-01")
+    log(f"Adding {len(data)} values")
+    ret = 0
     for line in data:
-        s = line
-        v = from_snafu(value=s)
-        s2 = to_snafu(value=v)
-        log(f"{s:6s} = {v:6d} = {s2}")
-    return 0
+        value = from_snafu(value=line)
+        ret += value
+    ret_snafu = to_snafu(value=ret)
+    log(f"The sum of {len(data)} values is {ret} or {ret_snafu} in snafu")
+    return ret_snafu
 
 
 @Task(year=2022, day=25, task=2)
