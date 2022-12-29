@@ -1,9 +1,11 @@
-import itertools
-from typing import Callable, AnyStr, Dict, Tuple, List
+import heapq
+import math
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Callable, AnyStr, Dict, Tuple, List, FrozenSet, Optional
 
 from AoC_Companion.Day import Task
 from AoC_Companion.Preprocess import Preprocessor
-from tqdm import tqdm
 
 
 @Preprocessor(year=2022, day=16)
@@ -18,119 +20,142 @@ def preproc_1(data):
         valve_flow = int(valve.strip().split("=")[-1])
         tunnel_targets = [x.strip().split(" ")[-1] for x in tunnels.strip().split(",")]
         ret[valve_id] = (valve_flow, tunnel_targets)
-    return ret
+    distances = _distances(
+        (src, ((dst, 1) for dst in dsts)) for src, (_, dsts) in ret.items()
+    )
+    return ret, distances
 
 
-@Task(year=2022, day=16, task=1, extra_config={"actors": [("AA", 30)]})
-def task01(data, log: Callable[[AnyStr], None], actors: List[Tuple[str, int]]):
-    best_flow, best_strategy = _find_flow(system=data, log=log, actors=actors)
+@Task(year=2022, day=16, task=1, extra_config={"actors": ["AA"], "total_time": 30})
+def task01(data, log: Callable[[AnyStr], None], actors: List[str], total_time: int):
+    system, distances = data
+    best_flow = _find_flow(system=system, distances=distances, log=log, actors=actors, total_time=total_time)
     return best_flow
 
 
-@Task(year=2022, day=16, task=2, extra_config={"actors": [("AA", 26), ("AA", 26)]})
-def task02(data, log: Callable[[AnyStr], None], actors: List[Tuple[str, int]]):
-    best_flow, best_strategy = _find_flow(system=data, log=log, actors=actors)
+@Task(year=2022, day=16, task=2, extra_config={"actors": ["AA", "AA"], "total_time": 26})
+def task02(data, log: Callable[[AnyStr], None], actors: List[str], total_time: int):
+    system, distances = data
+    best_flow = _find_flow(system=system, distances=distances, log=log, actors=actors, total_time=total_time)
     return best_flow
+
+
+@dataclass(order=True, frozen=True)
+class _SystemState:
+    actors: Tuple[Tuple[str, int], ...]
+    closed_valves: FrozenSet[str]
+    total_flow: int
+    total: int
+    time: int
 
 
 def _find_flow(
-        system: Dict[str, Tuple[int, List[str]]], actors: List[Tuple[str, int]], log: Callable[[str], None]
-) -> Tuple[int, Dict[str, int]]:
-    log(f"There are {len(actors)} actors going to close valves")
-    for i, (a, t) in enumerate(actors):
-        log(f"{i:4d}: Starting at {a:2s} having {t}s")
-    paths = _interesting_paths(system=system)
-    log(f"There are {len(system)} valves")
-    log(f"There are {sum(len(x) for x in paths.values())} interesting paths to use to get to open valves")
-    with tqdm(desc="Searching paths", total=0, leave=False) as pb:
-        best_flow, best_strategy = _search(
-            system=system,
-            actors=actors,
-            open_valves={},
-            paths=paths,
-            pb=pb,
-        )
-    log(f"You can achieve the best flow of {best_flow} by closing")
-    for v, t in sorted(best_strategy.items(), key=lambda x: x[1], reverse=True):
-        log(f"Closing {v:2s} at {t:2d} => {system[v][0] * t:d}")
-    return best_flow, best_strategy
-
-
-def _interesting_paths(system: Dict[str, Tuple[int, List[str]]]) -> Dict[str, Dict[str, int]]:
-    ret = {}
-    for start in system.keys():
-        paths = _find_paths(system=system, start=start)
-        ret[start] = {k: v for k, v in paths.items() if system[k][0] > 0}
-    return ret
-
-
-def _find_paths(system: Dict[str, Tuple[int, List[str]]], start: str) -> Dict[str, int]:
-    ret = {}
-    next_neighbors = [(x, 1) for x in system[start][1]]
-    while len(next_neighbors) > 0:
-        current, dist = next_neighbors.pop(0)
-        if current in ret:
-            continue
-        ret[current] = dist
-        next_neighbors.extend([(x, dist + 1) for x in system[current][1]])
-    return ret
-
-
-def _search(
         system: Dict[str, Tuple[int, List[str]]],
-        actors: List[Tuple[str, int]],
-        open_valves: Dict[str, int],
-        paths: Dict[str, Dict[str, int]],
-        pb: tqdm
-) -> Tuple[int, Dict[str, int]]:
-    if any(current[1] <= 0 for current in actors) or any(current[0] in open_valves for current in actors):
-        return _sum_flow(system=system, strategy=open_valves), open_valves
-
-    for i in range(len(actors)):
-        current, time_remain = actors[i]
-        if time_remain > 0 and system[current][0] > 0:
-            if current in open_valves:
-                raise Exception()
-            actors[i] = (current, time_remain - 1)
-            open_valves[current] = time_remain - 1
-    best_flow = _sum_flow(system=system, strategy=open_valves)
-    best_strategy = open_valves
-
-    combinations = (x for x in itertools.product(*[paths[x].keys() for x in (y[0] for y in actors)]) if
-                    len(x) == 1 or len(set(x)) == len(actors))
-    combinations = [x for x in combinations if not any(_n in open_valves for _n in x)]
-    # print(len(combinations))
-
-    pb.total += len(combinations)
-    for n in combinations:
-        pb.update()
-        next_actors = [
-            (_n, time_remain - paths[current][_n]) for (current, time_remain), _n in zip(actors, n)
-        ]
-        _flow, _strategy = _search(
-            system=system,
-            actors=next_actors,
-            open_valves=open_valves.copy(),
-            paths=paths,
-            pb=pb,
+        distances: Dict[Tuple[str, str], int],
+        actors: List[str],
+        total_time: int,
+        log: Callable[[AnyStr], None],
+):
+    from tqdm import tqdm
+    seen, max_seen = set(), 0
+    heap = [
+        (
+            0,
+            _SystemState(
+                actors=tuple((x, 0) for x in actors),
+                closed_valves=frozenset(src for src, (flow, _) in system.items() if flow > 0),
+                total_flow=0,
+                total=0,
+                time=total_time,
+            ),
         )
-        if _flow > best_flow:
-            best_flow = _flow
-            best_strategy = _strategy
+    ]
 
-    return best_flow, best_strategy
+    log(f"Finding best flow that can be created by {len(actors)} actors in {total_time} minutes")
+    log("\n".join(f"  -> {i + 1:{len(str(len(actors)))}d}. actor starts at {a}" for i, a in enumerate(actors)))
+
+    with tqdm(desc="Testing paths", total=None, leave=False) as pb:
+        while len(heap) > 0:
+            pb.update()
+            estimate, state = heapq.heappop(heap)
+            estimate = -estimate
+            if state in seen:
+                continue
+            seen.add(state)
+            potential = estimate + sum(
+                max(
+                    (
+                        system[valve][0] * (state.time - delta - 1)
+                        for room, age in state.actors
+                        if (delta := distances[room, valve] - age) in range(state.time)
+                    ),
+                    default=0,
+                )
+                for valve in state.closed_valves
+            )
+            if estimate > max_seen:
+                max_seen = estimate
+            if potential < max_seen:
+                continue
+
+            moves_by_time = defaultdict(lambda: defaultdict(list))
+            for valve in state.closed_valves:
+                for i, (room, age) in enumerate(state.actors):
+                    delta = distances[room, valve] - age
+                    if delta in range(state.time):
+                        moves_by_time[delta][i].append(valve)
+            if not moves_by_time:
+                continue
+
+            for delta, actor_moves in moves_by_time.items():
+                indices: List[Optional[int]] = [None] * len(actors)
+                while True:
+                    for i, index in enumerate(indices):
+                        index = 0 if index is None else index + 1
+                        if index < len(actor_moves[i]):
+                            indices[i] = index
+                            break
+                        indices[i] = None
+                    else:
+                        break
+                    valves = [
+                        (i, actor_moves[i][index])
+                        for i, index in enumerate(indices)
+                        if index is not None
+                    ]
+                    if len(valves) != len(set(valve for _, valve in valves)):
+                        continue
+                    new_rooms = [(room, age + delta + 1) for room, age in state.actors]
+                    for i, valve in valves:
+                        new_rooms[i] = valve, 0
+                    rate = sum(system[valve][0] for _, valve in valves)
+                    new_state = _SystemState(
+                        actors=tuple(sorted(new_rooms)),
+                        closed_valves=state.closed_valves - set(valve for _, valve in valves),
+                        total_flow=state.total_flow + rate,
+                        total=state.total + state.total_flow * (delta + 1),
+                        time=state.time - delta - 1,
+                    )
+                    heapq.heappush(heap, (-estimate - rate * new_state.time, new_state))
+
+    log(f"Best flow that can be created by {len(actors)} actors in {total_time} minutes is {max_seen}")
+
+    return max_seen
 
 
-def _create_combinations(base: List[str], n: int) -> List[List[str]]:
-    if n <= 0:
-        return []
-    ret = []
-    for i in range(len(base)):
-        curr_base = base.copy()
-        current = curr_base.pop(i)
-        ret.extend([current] + x for x in _create_combinations(base=curr_base, n=n - 1))
-    return ret
-
-
-def _sum_flow(system: Dict[str, Tuple[int, List[str]]], strategy: Dict[str, int]) -> int:
-    return sum(system[k][0] * v for k, v in strategy.items())
+def _distances(adj):
+    keys, distances = set(), defaultdict(lambda: math.inf)
+    for src, dsts in adj:
+        keys.add(src)
+        distances[src, src] = 0
+        for dst, weight in dsts:
+            keys.add(dst)
+            distances[dst, dst] = 0
+            distances[src, dst] = weight
+    for mid in keys:
+        for src in keys:
+            for dst in keys:
+                distance = distances[src, mid] + distances[mid, dst]
+                if distance < distances[src, dst]:
+                    distances[src, dst] = distance
+    return distances
