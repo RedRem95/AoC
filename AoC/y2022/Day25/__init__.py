@@ -26,4 +26,4 @@ def task01(data, log: Callable[[AnyStr], None]):
 @Task(year=2022, day=25, task=2)
 def task02(data, log: Callable[[AnyStr], None]):
     # create the result for day 1 task 2
-    return 1
+    return "You good bro"

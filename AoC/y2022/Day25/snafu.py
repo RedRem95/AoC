@@ -23,7 +23,7 @@ def to_snafu(value: int, base: int = 5) -> str:
     ret = []
     for _j in range(j, -1, -1):
         mult = base ** _j
-        v = sorted(range(-max_fact, max_fact + 1, 1), key=lambda i: abs(value - mult * i))[0]
+        v = sorted(range(-max_fact, max_fact + 1, 1), key=lambda i: (abs(value - mult * i), abs(i), _sign(i)))[0]
         value -= mult * v
         ret.append([k for k, _v in _SPECIAL_SNAFU.items() if _v == v][0] if v < 0 else v)
 
