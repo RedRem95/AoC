@@ -1,4 +1,6 @@
-from typing import Callable, AnyStr, Dict, Tuple, Union, List, Set
+import itertools
+import math
+from typing import Callable, AnyStr, Dict, Tuple, Union, List, Iterator, Optional
 
 from AoC_Companion.Day import Task
 from AoC_Companion.Preprocess import Preprocessor
@@ -7,8 +9,7 @@ from tqdm import tqdm
 _MAP_TYPE = Dict[Tuple[int, int], bool]
 _INSTRUCTION_TYPE = Union[str, int]
 _INSTR_LIST = List[_INSTRUCTION_TYPE]
-_PARTNER_DICT = Dict[
-    Tuple[int, int], Tuple[Callable[[Tuple[int, int], Tuple[int, int]], Tuple[int, int]], Tuple[int, int]]]
+_PARTNER_TYPE = Dict[Tuple[Tuple[int, int], Tuple[int, int]], Tuple[Tuple[int, int], Tuple[int, int]]]
 
 
 @Preprocessor(year=2022, day=22)
@@ -46,154 +47,150 @@ def preproc_1(data):
     return m, instructions
 
 
-@Task(year=2022, day=22, task=1, extra_config={"draw": True})
-def task01(data, log: Callable[[AnyStr], None], draw: bool):
+@Task(year=2022, day=22, task=1, extra_config={"draw": False})
+def task01(data, log: Callable[[AnyStr], None], draw: bool, start_pos=None, start_direction=None):
     data: Tuple[_MAP_TYPE, _INSTR_LIST]
     m, instructions = data
+    log(f"Using map in unfolded mode")
+    ret = _run(
+        m=m, instr=instructions, partner_fun=_partners_unfolded, return_fun=_calc_default_ret, log=log,
+        file_name="unfolded" if draw else None, start_pos=start_pos, start_direction=start_direction,
+    )
+    return ret
 
+
+@Task(year=2022, day=22, task=2, extra_config={"draw": False})
+def task02(data, log: Callable[[AnyStr], None], draw: bool, start_pos=None, start_direction=None):
+    data: Tuple[_MAP_TYPE, _INSTR_LIST]
+    m, instructions = data
+    log(f"Using map in folded mode")
+    ret = _run(
+        m=m, instr=instructions, partner_fun=_partners_folded, return_fun=_calc_default_ret, log=log,
+        file_name="folded" if draw else None, start_pos=start_pos, start_direction=start_direction,
+    )
+    return ret
+
+
+def _find_default_start(m: _MAP_TYPE) -> Tuple[int, int]:
     min_y = min(x[1] for x in m.keys() if any(m[y] is True for y in m.keys() if y[1] == x[1]))
     min_x = min(x[0] for x in m.keys() if x[1] == min_y and m[x] is True)
-    current = (min_x, min_y)
-    min_y = min(x[1] for x in m.keys())
-    min_x = min(x[0] for x in m.keys())
-    direction: Tuple[int, int] = (1, 0)
-    points = [current]
-    for i, instr in tqdm(enumerate(instructions), total=len(instructions), leave=False, desc="Following instructions"):
+    return min_x, min_y
+
+
+def _calc_default_ret(m: _MAP_TYPE, pt: Tuple[int, int], direction: Tuple[int, int]) -> int:
+    (min_x, max_x), (min_y, max_y) = _find_min_max(m=m)
+    return 1000 * (pt[1] - min_y + 1) + 4 * (pt[0] - min_x + 1) + _conv_direction(direction=direction)[0]
+
+
+def _run(
+        m: _MAP_TYPE, instr: _INSTR_LIST, log: Callable[[AnyStr], None],
+        partner_fun: Callable[[_MAP_TYPE], _PARTNER_TYPE],
+        return_fun: Callable[[_MAP_TYPE, Tuple[int, int], Tuple[int, int]], int], file_name: Optional[str] = None,
+        start_pos: Optional[Tuple[int, int]] = None, start_direction: Optional[Tuple[int, int]] = None,
+) -> int:
+    if start_pos is None:
+        start_pos = _find_default_start(m=m)
+    if start_direction is None:
+        start_direction = (1, 0)
+    partners = partner_fun(m)
+    current = start_pos
+    direction = start_direction
+    log(f"Running {len(instr)} instructions")
+    log(f"Starting at {current} facing {_conv_direction(direction=direction)[2].lower()}")
+    points: List[Tuple[int, int]] = [current]
+    for i, instr in tqdm(enumerate(instr), total=len(instr), leave=False, desc="Following instructions"):
         # log(f"{'-'*10}{i:^5d}{'-'*10} {instr}")
-        new_points, direction = _apply_instruction(instruction=instr, direction=direction, current=current, m=m)
+        new_points, direction = _apply_instruction(instruction=instr, direction=direction, current=current, m=m,
+                                                   partners=partners)
         current = new_points[-1]
         points.extend(new_points)
 
-    ret = 1000 * (current[1] - min_y + 1) + 4 * (current[0] - min_x + 1) + _conv_direction(direction=direction)[0]
-
-    if draw:
-        _draw_map(m=m, points=points, name="unfolded")
-
+    ret = return_fun(m, current, direction)
+    log(f"After {len(points)} steps you are at {current} facing {_conv_direction(direction=direction)[2].lower()}")
+    if file_name is not None:
+        _draw_map(m=m, points=points, name=file_name)
     return ret
 
 
-@Task(year=2022, day=22, task=2)
-def task02(data, log: Callable[[AnyStr], None]):
-    data: Tuple[_MAP_TYPE, _INSTR_LIST]
-    m, instructions = data
-    partners = _fold_cube(m=m)
-
-    current = (11, 7)
+def _find_outline(m: _MAP_TYPE) -> Iterator[Tuple[Tuple[int, int], Tuple[int, int]]]:
     direction = (1, 0)
-    log(_print_map(m=m, current=current, direction=direction))
-    new_points, direction = _apply_instruction(instruction=1, current=current, direction=direction, m=m,
-                                               partners=partners)
-    current = new_points[-1]
-    print(current, direction)
-    log("-" * 15)
-    log(_print_map(m=m, current=current, direction=direction))
+    start_y = min(y for x, y in m.keys())
+    start_x = min(x for x, y in m.keys() if y == start_y)
+    start_pos = (start_x, start_y)
+    current_pos = start_pos
+    yield direction, current_pos
+    while True:
+        n1 = _tpl_add(current_pos, direction)
+        n2 = _tpl_add(n1, _turn_direction(direction, "L"))
+        if n2 in m:
+            current_pos = n2
+            direction = _turn_direction(direction, "L")
+        elif n1 not in m:
+            current_pos = current_pos
+            direction = _turn_direction(direction, "R")
+        else:
+            current_pos = n1
+            direction = direction
+        yield direction, current_pos
+        if current_pos == start_pos:
+            break
 
-    return 2
+
+def _find_edges(m: _MAP_TYPE) -> Iterator[Tuple[Tuple[int, int], List[Tuple[int, int]]]]:
+    outline = _find_outline(m=m)
+    pre_edges = itertools.groupby(outline, key=lambda x: x[0])
+    pre_edges = [(k, [_v[1] for _v in v]) for k, v in pre_edges]
+    side_length = math.gcd(*[len(e) for _, e in pre_edges])
+
+    for d, edge in pre_edges:
+        for i in range(0, len(edge), side_length):
+            yield d, edge[i:i + side_length]
 
 
-def _find_min_max(m: _MAP_TYPE) -> Tuple[Tuple[int, int], Tuple[int, int], int]:
+def _partners_unfolded(m: _MAP_TYPE) -> _PARTNER_TYPE:
+    edges = list(_find_edges(m=m))
+    ret: _PARTNER_TYPE = {}
+    for d, edge in edges:
+        for pt in edge:
+            off_dir = _turn_direction(direction=d, change="L")
+            on_dir = _turn_direction(direction=d, change="R")
+            n = pt
+            while _tpl_add(n, on_dir) in m:
+                n = _tpl_add(n, on_dir)
+            ret[(off_dir, pt)] = (off_dir, n)
+    return ret
+
+
+def _partners_folded(m: _MAP_TYPE) -> _PARTNER_TYPE:
+    edges = [(direction, (edges, direction)) for direction, edges in _find_edges(m=m)]
+    ret: _PARTNER_TYPE = {}
+    pairs = []
+    while len(edges) > 0:
+        i = 0
+        while i < len(edges) - 1:
+            direction1, edge1 = edges[i]
+            direction2, edge2 = edges[i + 1]
+            if direction2 == _turn_direction(direction1, "L"):
+                pairs.append(((direction1, edge1), (direction2, edge2)))
+                edges[i:i + 2] = []
+                edges[i:] = [(_turn_direction(d, "L"), e) for d, e in edges[i:]]
+            else:
+                i += 1
+    for (direction1, edge1), (direction2, edge2) in pairs:
+        edge_list1, orig_direction1 = edge1
+        edge_list2, orig_direction2 = edge2
+        on1, off1 = _turn_direction(orig_direction1, "R"), _turn_direction(orig_direction1, "L")
+        on2, off2 = _turn_direction(orig_direction2, "R"), _turn_direction(orig_direction2, "L")
+        for pt1, pt2 in zip(edge_list1, edge_list2[::-1]):
+            ret[(off1, pt1)] = (on2, pt2)
+            ret[(off2, pt2)] = (on1, pt1)
+    return ret
+
+
+def _find_min_max(m: _MAP_TYPE) -> Tuple[Tuple[int, int], Tuple[int, int]]:
     min_y, max_y = min(x[1] for x in m.keys()), max(x[1] for x in m.keys())
     min_x, max_x = min(x[0] for x in m.keys()), max(x[0] for x in m.keys())
-    side_len = min(max_x - min_x + 1, max_y - min_y + 1) // 3
-    return (min_x, max_x), (min_y, max_y), side_len
-
-
-def _fold_cube(m: _MAP_TYPE) -> Dict[Tuple[int, int], _PARTNER_DICT]:
-    (min_x, max_x), (min_y, max_y), side_len = _find_min_max(m=m)
-
-    i = 1
-    face_map: Dict[Tuple[int, int], int] = {}
-    for y in range(min_y, max_y + 1, side_len):
-        for x in range(min_x, max_x + 1, side_len):
-            pt = (x, y)
-            if pt in m:
-                face_map[(x // side_len, (y // side_len))] = i
-                i += 1
-    partners = {}
-    for face in face_map.keys():
-        partners[face] = _find_partner(face=face, faces=set(face_map.keys()), side_len=side_len)
-        print("-" * 15)
-
-    return partners
-
-
-def _find_partner(
-        face: Tuple[int, int], faces: Set[Tuple[int, int]], side_len: int
-) -> _PARTNER_DICT:
-    ret: _PARTNER_DICT = {}
-    # TOP BOTTOM
-    for direction in ((0, -1), (0, 1), (-1, 0), (1, 0)):
-        t_direction = _tpl_apl(t1=_turn_direction(direction=direction, change="R"), f=int)
-        if _tpl_add(face, direction) in faces:
-            # print(f"{face} Has {direction} direct friend")
-            ret[direction] = (lambda x: _tpl_add(t1=x, t2=direction), direction)
-        elif _tpl_add(t1=_tpl_add(t1=face, t2=direction), t2=_tpl_mult(t_direction, 1)) in faces:
-            # print(f"{face} Has {direction} {t_direction} friend")
-            def _tmp(x: Tuple[int, int], _d: Tuple[int, int]) -> Tuple[int, int]:
-                idx = _tpl_apl(_d, abs).index(1)  # 1
-                idx_t = (idx + 1) % 2  # 0
-                _r = [-1, -1]
-                _rest = x[idx_t] % side_len
-                _r[idx_t] = x[idx_t] + side_len - _rest
-                _r[idx] = x[idx] - side_len + _rest
-                return _r[0], _r[1]
-
-            ret[direction] = _tmp, _tpl_mult(t_direction, 1)
-        elif _tpl_add(t1=_tpl_add(t1=face, t2=direction), t2=_tpl_mult(t_direction, -1)) in faces:
-            # print(f"{face} Has {direction} {_tpl_mult(t_direction, -1)} friend")
-            def _tmp(x: Tuple[int, int], _d: Tuple[int, int]) -> Tuple[int, int]:
-                idx = _tpl_apl(_d, abs).index(1)  # 1
-                idx_t = (idx + 1) % 2  # 0
-                _r = [-1, -1]
-                _rest = x[idx_t] % side_len
-                _r[idx_t] = x[idx_t] - _rest - 1
-                _r[idx] = x[idx] - 1 - _rest
-                return _r[0], _r[1]
-
-            ret[direction] = _tmp, _tpl_mult(t_direction, -1)
-        elif _tpl_add(t1=_tpl_add(t1=face, t2=direction), t2=_tpl_mult(t_direction, 2)) in faces:
-            print(f"{face} Has {direction} {_tpl_mult(t_direction, 2)} friend")
-            ret[direction] = 4
-        elif _tpl_add(t1=_tpl_add(t1=face, t2=direction), t2=_tpl_mult(t_direction, -2)) in faces:
-            print(f"{face} Has {direction} {_tpl_mult(t_direction, -2)} friend")
-            ret[direction] = 5
-        elif _tpl_add(t1=_tpl_add(t1=face, t2=_tpl_mult(t1=direction, f=-1)), t2=_tpl_mult(t_direction, 3)) in faces:
-            print(f"{face} Has {direction} {_tpl_mult(t_direction, 3)} back friend")
-            ret[direction] = 7
-        elif _tpl_add(t1=_tpl_add(t1=face, t2=_tpl_mult(t1=direction, f=-1)), t2=_tpl_mult(t_direction, -3)) in faces:
-            print(f"{face} Has {direction} {_tpl_mult(t_direction, -3)} back friend")
-            ret[direction] = 7
-        elif _tpl_add(t1=_tpl_add(t1=face, t2=_tpl_mult(t1=direction, f=-1)), t2=_tpl_mult(t_direction, 2)) in faces:
-            print(f"{face} Has {direction} {_tpl_mult(t_direction, 2)} back friend")
-            ret[direction] = 7
-        elif _tpl_add(t1=_tpl_add(t1=face, t2=_tpl_mult(t1=direction, f=-1)), t2=_tpl_mult(t_direction, -2)) in faces:
-            print(f"{face} Has {direction} {_tpl_mult(t_direction, -2)} back friend")
-            ret[direction] = 7
-        elif _tpl_add(t1=face, t2=_tpl_mult(t1=_turn_direction(_turn_direction(direction, "R"), "R"), f=3)) in faces:
-            print(f"{face} Has {direction} mirrored friend")
-            ret[direction] = 7
-        elif _tpl_add(t1=face, t2=_tpl_add(_tpl_mult(t1=_turn_direction(_turn_direction(direction, "R"), "R"), f=3),
-                                           _tpl_mult(t_direction, 1))) in faces:
-            print(f"{face} Has {direction} mirrored {_tpl_mult(t_direction, 1)} friend")
-            ret[direction] = 7
-        elif _tpl_add(t1=face, t2=_tpl_add(_tpl_mult(t1=_turn_direction(_turn_direction(direction, "R"), "R"), f=3),
-                                           _tpl_mult(t_direction, -1))) in faces:
-            print(f"{face} Has {direction} mirrored {_tpl_mult(t_direction, -1)} friend")
-            ret[direction] = 7
-        elif _tpl_add(t1=face, t2=_tpl_add(_tpl_mult(t1=_turn_direction(_turn_direction(direction, "R"), "R"), f=3),
-                                           _tpl_mult(t_direction, 2))) in faces:
-            print(f"{face} Has {direction} mirrored {_tpl_mult(t_direction, 2)} friend")
-            ret[direction] = 7
-        elif _tpl_add(t1=face, t2=_tpl_add(_tpl_mult(t1=_turn_direction(_turn_direction(direction, "R"), "R"), f=3),
-                                           _tpl_mult(t_direction, -2))) in faces:
-            print(f"{face} Has {direction} mirrored {_tpl_mult(t_direction, -2)} friend")
-            ret[direction] = 7
-        else:
-            raise Exception(f"{face} Has no {direction} friend")
-            # print(f"{face} Has no {direction} friend")
-            pass
-
-    return ret
+    return (min_x, max_x), (min_y, max_y)
 
 
 def _turn_direction(direction: Tuple[int, int], change: str) -> Tuple[int, int]:
@@ -218,12 +215,12 @@ def _turn_direction(direction: Tuple[int, int], change: str) -> Tuple[int, int]:
     }[direction][change.upper()]
 
 
-def _conv_direction(direction: Tuple[int, int]) -> Tuple[int, str]:
+def _conv_direction(direction: Tuple[int, int]) -> Tuple[int, str, str]:
     return {
-        (0, 1): (1, "V"),
-        (0, -1): (3, "^"),
-        (1, 0): (0, ">"),
-        (-1, 0): (2, "<"),
+        (0, 1): (1, "V", "Down"),
+        (0, -1): (3, "^", "Up"),
+        (1, 0): (0, ">", "Right"),
+        (-1, 0): (2, "<", "Left"),
     }[direction]
 
 
@@ -241,15 +238,14 @@ def _tpl_apl(t1: Tuple[int, int], f: Callable[[int], int]) -> Tuple[int, int]:
 
 def _apply_instruction(
         instruction: _INSTRUCTION_TYPE, current: Tuple[int, int], direction: Tuple[int, int], m: _MAP_TYPE,
-        partners: Dict[Tuple[int, int], _PARTNER_DICT] = None
+        partners: _PARTNER_TYPE
 ) -> Tuple[List[Tuple[int, int]], Tuple[int, int]]:
     ret = [current]
     if isinstance(instruction, int):
         for _ in range(instruction):
-            if partners is None:
-                _next, _direction = _find_next(direction=direction, current=current, m=m)
-            else:
-                _next, _direction = _find_next_folded(direction=direction, current=current, m=m, partners=partners)
+            _direction, _next = partners.get((direction, current), (direction, _tpl_add(current, direction)))
+            if _next not in m:
+                raise Exception()
             if m[_next] is True:
                 current = _next
                 direction = _direction
@@ -261,41 +257,9 @@ def _apply_instruction(
     return ret, direction
 
 
-def _find_next(
-        direction: Tuple[int, int], current: Tuple[int, int], m: _MAP_TYPE,
-) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-    n = _tpl_add(t1=current, t2=direction)
-    if n not in m:
-        search_direction = _turn_direction(direction=_turn_direction(direction=direction, change="R"), change="R")
-        _n = current
-        while _n in m:
-            _n = _tpl_add(t1=_n, t2=search_direction)
-        _n = _tpl_add(t1=_n, t2=direction)
-        if _n not in m:
-            raise Exception()
-        n = _n
-    return n, direction
-
-
-def _find_next_folded(
-        direction: Tuple[int, int], current: Tuple[int, int], m: _MAP_TYPE,
-        partners: Dict[Tuple[int, int], _PARTNER_DICT],
-) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-    n = _tpl_add(t1=current, t2=direction)
-
-    if n not in m:
-        (min_x, max_x), (min_y, max_y), side_len = _find_min_max(m=m)
-        face = (current[0] // side_len, current[1] // side_len)
-        partner_fun, _direction = partners[face][direction]
-        n = partner_fun(current, direction)
-        direction = _direction
-
-    return n, direction
-
-
 def _print_map(m: _MAP_TYPE, current: Tuple[int, int], direction: Tuple[int, int]) -> str:
     ret = []
-    (min_x, max_x), (min_y, max_y), side_len = _find_min_max(m=m)
+    (min_x, max_x), (min_y, max_y) = _find_min_max(m=m)
 
     for y in range(min_y, max_y + 1, 1):
         line = []
@@ -319,7 +283,7 @@ def _draw_map(m: _MAP_TYPE, points: List[Tuple[int, int]], name: str):
     import os
     import matplotlib.pyplot as plt
     import numpy as np
-    (min_x, max_x), (min_y, max_y), side_len = _find_min_max(m=m)
+    (min_x, max_x), (min_y, max_y) = _find_min_max(m=m)
     _img = np.zeros((max_y - min_y + 1, max_x - min_x + 1), dtype=np.float)
     min_c, max_c = .1, 1
     for y in range(min_y, max_y + 1, 1):
@@ -341,3 +305,7 @@ def _draw_map(m: _MAP_TYPE, points: List[Tuple[int, int]], name: str):
     ax.imshow(_img)
     ax.set_axis_off()
     fig.savefig(os.path.join(os.path.dirname(__file__), f"{name}.png"), dpi=600)
+
+
+def _sign(x):
+    return 1 if x >= 0 else -1
