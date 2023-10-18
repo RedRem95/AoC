@@ -284,7 +284,7 @@ def _draw_map(m: _MAP_TYPE, points: List[Tuple[int, int]], name: str):
     import matplotlib.pyplot as plt
     import numpy as np
     (min_x, max_x), (min_y, max_y) = _find_min_max(m=m)
-    _img = np.zeros((max_y - min_y + 1, max_x - min_x + 1), dtype=np.float)
+    _img = np.zeros((max_y - min_y + 1, max_x - min_x + 1), dtype=float)
     min_c, max_c = .1, 1
     for y in range(min_y, max_y + 1, 1):
         for x in range(min_x, max_x + 1, 1):
