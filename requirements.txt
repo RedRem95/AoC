@@ -1,0 +1,13 @@
+numpy
+matplotlib
+tqdm
+pytest
+scipy
+scikit-image
+scikit-learn
+requests
+nose
+imageio
+git+https://github.com/RedRem95/AoC-Companion.git
+pygifsicle
+imageio[ffmpeg]
