@@ -54,7 +54,7 @@ def run(data, log: Callable[[AnyStr], None], to_int: Callable[[AnyStr], Optional
 
 
 @Task(year=2023, day=1, task=1)
-def task02(data, log: Callable[[AnyStr], None]):
+def task01(data, log: Callable[[AnyStr], None]):
     return run(data=data, log=log, to_int=lambda v: _to_int(v=v, special_allow=False))
 
 
