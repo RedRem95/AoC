@@ -99,7 +99,7 @@ def task02(
     log(f"Loop creation took {timedelta(seconds=t2 - t1)}")
     log(f"Loop has a length of {len(loop)}")
     furthest_point = (len(loop) // 2, loop[len(loop) // 2])
-    num_points = (x_bound[1] - x_bound[0] + 1) * (y_bound[1] - y_bound[0] + 1) - len(loop) + 1
+    num_points = (x_bound[1] - x_bound[0] + 1) * (y_bound[1] - y_bound[0] + 1) - len(loop)
     log(f"Need to check {num_points} points for inside and outside")
     t1 = perf_counter()
     in_out = {}
@@ -112,8 +112,10 @@ def task02(
                     pb.update(n=1)
     t2 = perf_counter()
     log(f"In/Out checking took {timedelta(seconds=t2 - t1)}")
-    ret = sum(in_out.values())
-    log(f"{ret}/{num_points} ({100 * ret / num_points:.2f}%) are contained in the pipe loop")
+    count_in_loop = sum(in_out.values())
+    count_out_loop = sum(1 if x is False else 0 for x in in_out.values())
+    log(f"{count_in_loop}/{num_points} ({100 * count_in_loop / num_points:.2f}%) are contained in the pipe loop")
+    log(f"{count_out_loop}/{num_points} ({100 * count_out_loop / num_points:.2f}%) are outside the pipe loop")
     if create_image:
         t1 = perf_counter()
         from PIL import Image, ImageDraw, ImageFont
@@ -133,11 +135,10 @@ def task02(
 
         text_lines = [
             (f"Start: ({start[1]}, {start[0]})", start_point_c),
-            (
-            f"Furthest: ({furthest_point[1][1]}, {furthest_point[1][0]}). {furthest_point[0]} steps", furthest_point_c),
+            (f"Furthest: ({furthest_point[1][1]}, {furthest_point[1][0]}). {furthest_point[0]} steps", furthest_point_c),
             (f"Loop length: {len(loop)}", fg),
-            (f"{ret}/{num_points} ({100 * ret / num_points:.2f}%) are contained in the pipe loop", in_points),
-            (f"{num_points - ret}/{num_points} ({100 + (ret - num_points) / num_points:.2f}) are outside the loop",
+            (f"{count_in_loop}/{num_points} ({100 * count_in_loop / num_points:.2f}%) are inside the pipe loop", in_points),
+            (f"{count_out_loop}/{num_points} ({100 * count_out_loop / num_points:.2f}%) are outside the pipe loop",
              out_points)
         ]
 
@@ -191,4 +192,4 @@ def task02(
         img.save(img_path, format="PNG")
         t2 = perf_counter()
         log(f"Image saved to {img_path}. Took {timedelta(seconds=t2 - t1)}")
-    return ret
+    return count_in_loop
