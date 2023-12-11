@@ -11,3 +11,5 @@ imageio
 git+https://github.com/RedRem95/AoC-Companion.git
 pygifsicle
 imageio[ffmpeg]
+shapely
+Pillow
