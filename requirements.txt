@@ -13,3 +13,4 @@ pygifsicle
 imageio[ffmpeg]
 shapely
 Pillow
+networkx

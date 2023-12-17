@@ -3,7 +3,7 @@ import os.path
 from datetime import timedelta
 from typing import Callable, AnyStr, Optional, Dict, List, Tuple, Iterable, Generator, Iterator, Set
 from collections import defaultdict
-from time import perf_counter
+from time import perf_counter, sleep
 from itertools import chain
 from functools import lru_cache
 from copy import deepcopy
@@ -82,6 +82,7 @@ def task(
         starts = [((0, 0), (1, 0))]
     log(f"Checking cave of size {w}x{h} with {len(object_map)} objects scattered around it")
     log(f"Starting from {len(starts)} start points")
+    t1 = perf_counter()
     energized_fields: Dict[Tuple[Tuple[int, int], Tuple[int, int]], Tuple[List[List[Tuple[int, int]]], int]] = {}
     for start in starts:
         visited, num_energy = simulate(start=start, object_map=object_map, special_objects=special_objects, w=w, h=h)
@@ -89,14 +90,16 @@ def task(
         energized_fields[start] = (visited_points, num_energy)
     energized_fields_sort = sorted(energized_fields.items(), key=lambda x: x[1][1], reverse=True)
     (max_pos, max_dir), (energized_points, energized_value) = energized_fields_sort[0]
+    t2 = perf_counter()
     log(f"You get the maximum energized fields of {energized_value} when starting from {max_pos} going {DTS[max_dir]}")
+    log(f"It took {timedelta(seconds=t2-t1)} to check all {len(starts)} starting points ({(t2-t1)/len(starts)}s/point)")
     if render_name is not None:
         f_name = _render(positions=energized_points, object_map=object_map, w=w, h=h, f_name=render_name)
         log(f"Saved rendered video to {f_name}")
     return energized_value
 
 
-def _tpl_add(t1: Tuple[int, int], t2: Tuple[int, int]) -> Tuple[int, int]:
+def tpl_add(t1: Tuple[int, int], t2: Tuple[int, int]) -> Tuple[int, int]:
     return t1[0] + t2[0], t1[1] + t2[1]
 
 
@@ -119,10 +122,10 @@ def simulate(
             visited.add((position, direction))
             if position in object_map:
                 for new_direction in special_objects[object_map[position]][direction]:
-                    n = (_tpl_add(t1=position, t2=new_direction), new_direction)
+                    n = (tpl_add(t1=position, t2=new_direction), new_direction)
                     new_current.append(n)
             else:
-                n = (_tpl_add(t1=position, t2=direction), direction)
+                n = (tpl_add(t1=position, t2=direction), direction)
                 new_current.append(n)
         current = new_current
         frames.append(new_current)
@@ -136,7 +139,7 @@ def _render(
 ) -> str:
     import imageio as iio
 
-    fps = 100
+    fps = 60
     block_size = 16
     scale = 1
 
@@ -149,6 +152,7 @@ def _render(
     with iio.get_writer(
             f_name, fps=fps, codec="libx264", quality=3, ffmpeg_log_level="quiet", macro_block_size=block_size
     ) as writer:
+        sleep(0.01)
         for i in trange(-1, len(positions) + 2 * fps, desc="rendering", leave=False, unit="f"):
             if 0 <= i < len(positions):
                 visited.update(positions[i])
