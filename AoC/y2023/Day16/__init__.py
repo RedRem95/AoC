@@ -99,8 +99,8 @@ def task(
     return energized_value
 
 
-def tpl_add(t1: Tuple[int, int], t2: Tuple[int, int]) -> Tuple[int, int]:
-    return t1[0] + t2[0], t1[1] + t2[1]
+def tpl_add(t1: Tuple[int, ...], t2: Tuple[int, ...]) -> Tuple[int, ...]:
+    return tuple(i + j for i, j in zip(t1, t2))
 
 
 # TODO: optimize using global cache of position and direction
