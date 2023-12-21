@@ -14,3 +14,4 @@ imageio[ffmpeg]
 shapely
 Pillow
 networkx
+graphblas-algorithms

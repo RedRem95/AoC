@@ -36,7 +36,6 @@ RENDER = True
 
 @Preprocessor(year=YEAR, day=DAY)
 def preproc_1(data: List[str]):
-    print("preproc")
     modules: Dict[str, "Module"] = {}
     my_queue = []
     for line in (x.strip() for x in data if len(x.strip()) > 0):
