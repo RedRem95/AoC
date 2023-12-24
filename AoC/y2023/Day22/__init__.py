@@ -211,7 +211,7 @@ class Brick(object):
         return False
 
     def __repr__(self):
-        return (f"<{self.__class__.__name__}: "
+        return (f"<{self.__class__.__name__}: {self._id}, "
                 f"p1 {self._p1}, p2 {self._p2}, resting {self.is_resting}, {self.num_supporting_cubes}>")
 
     def __str__(self):
