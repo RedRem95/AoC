@@ -40,17 +40,13 @@ def task02(data, log: Callable[[AnyStr], None]):
     thingies = sorted((x for x in correct_patterns + dos + donts), key=lambda x: x.start())
     mul_enabled = True
     r = 0
-    c = [0, 0, 0]
     for i, pattern in enumerate(thingies):
         pattern_str = pattern[0]
         if pattern_str == "do()":
             mul_enabled = True
-            c[0] += 1
         elif pattern_str == "don't()":
             mul_enabled = False
-            c[1] += 1
         elif pattern_str.startswith("mul("):
-            c[2] += 1
             if mul_enabled:
                 pattern_str = pattern_str.split("(")[-1].split(")")[0]
                 n1, n2 = pattern_str.split(",")
@@ -58,5 +54,4 @@ def task02(data, log: Callable[[AnyStr], None]):
                 r += n1 * n2
         else:
             raise Exception(pattern)
-    log(str(c))
     return r
