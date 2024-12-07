@@ -42,7 +42,7 @@ def task01(data, log: Callable[[AnyStr], None]):
     log(f"{len(correct_updates)}/{len(updates)} updates were correct. "
         f"That are {len(correct_updates)/len(updates) * 100:.2f}%")
     ret = sum(x[len(x)//2] for x in correct_updates)
-    log(f"The middle pages in sum result in {ret}")
+    log(f"The middle pages of all correct updates in sum result in {ret}")
     return ret
 
 
@@ -71,4 +71,5 @@ def task02(data, log: Callable[[AnyStr], None]):
         f"That are {sum(swaps)/len(fixed_updates)} swaps per fix")
     log(f"The maximum number of swaps was {max(swaps)}. On the other hand, the minimum swaps were {min(swaps)}.")
     ret = sum(x[len(x)//2] for x in fixed_updates)
+    log(f"The middle pages of all fixed updates in sum result in {ret}")
     return ret
