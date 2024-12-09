@@ -1,15 +1,6 @@
-from typing import Callable, AnyStr, Optional, List, Tuple, Dict, Set, Union, Iterable
-import os
-import math
-from collections import defaultdict
-from functools import lru_cache
-from time import perf_counter, sleep
-from datetime import timedelta
-
-from tqdm import tqdm
+from typing import Callable, AnyStr, List, Union, Iterable
 
 from AoC_Companion.Day import Task
-from AoC_Companion.test import TestData
 from AoC_Companion.Preprocess import Preprocessor
 
 _DAY = 7
