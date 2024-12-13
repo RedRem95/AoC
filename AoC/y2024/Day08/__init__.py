@@ -4,7 +4,10 @@ from typing import Callable, AnyStr, List, Tuple, Dict, Set, Iterable
 from AoC_Companion.Day import Task
 from AoC_Companion.Preprocess import Preprocessor
 
-from AoC.y2023.Day16 import tpl_add
+
+def tpl_add(t1: Tuple[int, ...], t2: Tuple[int, ...]) -> Tuple[int, ...]:
+    return tuple(i + j for i, j in zip(t1, t2))
+
 
 _DAY = 8
 
