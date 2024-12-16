@@ -299,7 +299,7 @@ class Warehouse:
             else:
                 raise Exception()
             (x_min, y_min), (x_max, y_max) = xy
-            left_third, right_third, upper_third, lower_third = self.get_fraction(xy, 4)
+            left_third, right_third, upper_third, lower_third = get_fraction(xy, 4)
             n, ne, e, se, s, sw, w, nw = friends
             if not n:
                 draw.rectangle(xy=(x_min, y_min, x_max, upper_third), fill=color, outline=None, width=0)
@@ -320,12 +320,12 @@ class Warehouse:
             return
         raise Exception()
 
-    @staticmethod
-    @lru_cache(maxsize=None)
-    def get_fraction(xy, fraction: int = 3):
-        (x_min, y_min), (x_max, y_max) = xy
-        left_third = x_min + ceil((x_max - x_min) / fraction)
-        right_third = x_max - (left_third - x_min)
-        upper_third = y_min + ceil((y_max - y_min) / fraction)
-        lower_third = y_max - (upper_third - y_min)
-        return left_third, right_third, upper_third, lower_third
+
+@lru_cache(maxsize=None)
+def get_fraction(xy, fraction: int = 3):
+    (x_min, y_min), (x_max, y_max) = xy
+    left_third = x_min + ceil((x_max - x_min) / fraction)
+    right_third = x_max - (left_third - x_min)
+    upper_third = y_min + ceil((y_max - y_min) / fraction)
+    lower_third = y_max - (upper_third - y_min)
+    return left_third, right_third, upper_third, lower_third
