@@ -1,6 +1,7 @@
 import os.path
 from collections import Counter
 from copy import deepcopy
+from time import perf_counter
 from typing import Callable, AnyStr, List, Tuple
 
 import numpy as np
@@ -128,34 +129,39 @@ def task02(data: List[Robot], log: Callable[[AnyStr], None],
     robot_positions = set()
     sim_steps = 0
     with tqdm(desc="Searching for christmas tree", unit="second", leave=False) as pb:
+        t1 = perf_counter()
         while len(robot_positions) != len(data):
             sim_steps += 1
             pb.update(n=1)
             for robot in data:
                 robot.simulate(n=1, bounds=bounds)
             robot_positions = set(robot.position for robot in data)
+        t2 = perf_counter()
     log(f"Found that the christmas tree shows up after {sim_steps} steps of simulation")
+    log(f"Search took {t2 - t1:.4} seconds")
     if render:
         try:
             import imageio as iio
+            from PIL import Image
             f_name_video = os.path.join(os.path.dirname(__file__), "p2.mp4")
             f_name_image = os.path.join(os.path.dirname(__file__), "p2_tree.png")
             with iio.get_writer(
                     f_name_video, fps=4, codec="libx264", quality=3, ffmpeg_log_level="quiet", macro_block_size=16
             ) as writer:
                 def _draw(heading):
-                    img = _draw_frame(robots=video_robots, bounds=bounds, heading=heading)
-                    writer.append_data(_scale_image(img=np.array(img), scale=1, block_size=16))
+                    img = _draw_frame(robots=video_robots, bounds=bounds, header=heading, pixel=11 * 4)
+                    writer.append_data(scale_image(img=np.array(img), scale=1, block_size=16))
 
                 _draw(heading=f"Step: {0}")
-                for i in trange(sim_steps, desc="Simulating", leave=False, unit="second"):
+                for i in trange(sim_steps, desc="Simulating for render", leave=False, unit="second"):
                     for robot in video_robots:
                         robot.simulate(n=1, bounds=bounds)
                     _draw(heading=f"Step: {i + 1}")
                 for _ in range(4 * 10):
                     _draw(heading=f"Step: {i + 1} => The <<CHRISTMAS TREE>>")
                 with open(f_name_image, "wb") as f_out:
-                    _draw_frame(robots=video_robots, bounds=bounds, heading=f"<<CHRISTMAS TREE>>").save(f_out)
+                    img = _draw_frame(robots=video_robots, bounds=bounds, header=f"<<CHRISTMAS TREE>>", pixel=11 * 4)
+                    Image.fromarray(scale_image(img=np.array(img), scale=1, block_size=1)).save(f_out)
                 log(f"Rendered video to {os.path.abspath(f_name_video)}")
                 log(f"Rendered image to {os.path.abspath(f_name_image)}")
         except ImportError as e:
@@ -163,38 +169,40 @@ def task02(data: List[Robot], log: Callable[[AnyStr], None],
     return sim_steps
 
 
-def _draw_frame(robots: List[Robot], bounds: Tuple[Tuple[int, int], Tuple[int, int]], heading: str):
+def _draw_frame(robots: List[Robot], bounds: Tuple[Tuple[int, int], Tuple[int, int]], header: str, pixel: int = 11):
     from PIL import Image, ImageDraw, ImageFont
     tile_counter = Counter(robot.position for robot in robots)
     (min_x, max_x), (min_y, max_y) = bounds
     field_width, field_height = max_x - min_x, max_y - min_y
 
     bg = (0, 0, 0)
-    objects = (127, 131, 134)
+    heading_color = (127, 131, 134)
+    pixel_color = [(205, 28, 54), (57, 90, 50)]
 
-    pixel_size = 11
-    heading_size = pixel_size * 4
+    heading_size = pixel * 4
 
-    ret = Image.new("RGB", ((field_width + 2) * pixel_size, (field_height + 3) * pixel_size + heading_size), bg)
+    ret = Image.new("RGB", ((field_width + 2) * pixel, (field_height + 3) * pixel + heading_size), bg)
     draw = ImageDraw.Draw(ret)
 
     font = ImageFont.truetype(font="arial.ttf", size=heading_size)
-    draw.text((pixel_size * (field_width / 2 + 0.5), pixel_size), heading, objects, font, align="center", anchor="mt")
+    draw.text((pixel * (field_width / 2 + 0.5), pixel),
+              header, heading_color, font, align="center", anchor="mt")
 
     for x in range(field_width):
         for y in range(field_height):
-            pixel_x, pixel_y = (x + 1) * pixel_size, (y + 2) * pixel_size + heading_size
+            pixel_x, pixel_y = (x + 1) * pixel, (y + 2) * pixel + heading_size
             pos = x + min_x, y + min_y
+            pos_color = pixel_color[sum(pos) % len(pixel_color)]
             if tile_counter[pos] > 0:
                 draw.rectangle(
-                    xy=((pixel_x, pixel_y), (pixel_x + pixel_size, pixel_y + pixel_size)),
-                    fill=objects, outline=objects, width=1
+                    xy=((pixel_x, pixel_y), (pixel_x + pixel, pixel_y + pixel)),
+                    fill=pos_color, outline=None, width=0
                 )
     return ret
 
 
 # noinspection DuplicatedCode
-def _scale_image(img: np.ndarray, scale: int, block_size: int = 1) -> np.ndarray:
+def scale_image(img: np.ndarray, scale: int, block_size: int = 1) -> np.ndarray:
     from PIL import Image
     new_size = np.array(list(reversed(img.shape[:2]))) * scale
     new_size = block_size * np.ceil(new_size / block_size).astype(int)
