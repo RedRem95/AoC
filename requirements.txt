@@ -15,3 +15,6 @@ shapely
 Pillow
 networkx
 graphblas-algorithms
+
+mpmath
+sympy

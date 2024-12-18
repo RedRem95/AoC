@@ -29,7 +29,7 @@ def draw_frame(
     # (y_min, y_max), (x_min, x_max) = self.get_bounds()
     width, height = size
 
-    ret = Image.new("RGB",
+    ret = Image.new("RGBA",
                     ((width + (2 * border_size)) * pixel_size,
                      (height + (3 * border_size)) * pixel_size + heading_size),
                     bg_color)
