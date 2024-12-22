@@ -1,5 +1,7 @@
 from typing import Tuple, Optional
 
+from sympy import Function, Integer
+
 
 def replace_in_tpl(tpl: Tuple, val, idx: int) -> Tuple:
     return *tpl[:idx], val, *tpl[idx + 1:]
@@ -49,12 +51,34 @@ def out(pos: int, operand: int, register: Tuple[int, ...]) -> Tuple[Tuple[int, .
 
 
 def bxc(pos: int, operand: int, register: Tuple[int, ...]) -> Tuple[Tuple[int, ...], int, Optional[int]]:
-    val = register[1] ^ register[2]
+    val = BitwiseXOr(register[1], register[2])  # register[1] ^ register[2]
     register = replace_in_tpl(tpl=register, val=val, idx=1)
     return register, pos + 2, None
 
 
 def bxl(pos: int, operand: int, register: Tuple[int, ...]) -> Tuple[Tuple[int, ...], int, Optional[int]]:
-    val = register[1] ^ operand
+    val = BitwiseXOr(register[1], operand)  # register[1] ^ operand
     register = replace_in_tpl(tpl=register, val=val, idx=1)
     return register, pos + 2, None
+
+
+class BitwiseXOr(Function):
+    @classmethod
+    def eval(cls, a, b):
+        # If both arguments are integers, evaluate directly
+        if isinstance(a, Integer) and isinstance(b, Integer):
+            return Integer(a ^ b)
+        # Otherwise, return unevaluated for symbolic processing
+        return None
+
+    def _solve_for(self, lhs, rhs, symbol):
+        """
+        Define how to solve equations involving BitwiseXor.
+        This method assumes the equation has the form BitwiseXor(lhs, rhs) = value.
+        """
+        from sympy import solve, Eq
+        # Extract the other argument
+        other = self.args[1] if self.args[0] == symbol else self.args[0]
+
+        # Solve for `symbol`: XOR's property x ^ a = b implies x = b ^ a
+        return solve(Eq(symbol, rhs ^ other), symbol)

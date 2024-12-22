@@ -55,6 +55,24 @@ def task01(data, log: Callable[[AnyStr], None]):
 
 
 @Task(year=2024, day=_DAY, task=2)
+def task02_symbolic(data, log: Callable[[AnyStr], None]):
+    from sympy import Symbol, Eq, solve
+    a = Symbol("A", positive=True, integer=True)
+    register, operators = data
+    register = replace_in_tpl(tpl=register, val=a, idx=0)
+    outs = []
+    for dis_out in run_program(register=register, operators=operators):
+        outs.append(dis_out)
+        if len(outs) == len(operators):
+            break
+    eqs = [Eq(eq, v) for eq, v in zip(outs, operators)]
+    e = eqs[0]
+    print("\n".join(str(o) for o in eqs))
+    print(solve(eqs, a, dict=True))
+    return None
+
+
+# @Task(year=2024, day=_DAY, task=2)
 def task02(data, log: Callable[[AnyStr], None]):
     from tqdm import tqdm
     register, operators = data
