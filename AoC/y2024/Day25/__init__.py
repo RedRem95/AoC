@@ -65,16 +65,17 @@ def task01(data, log: Callable[[AnyStr], None]):
     from tqdm import tqdm
     keys, locks = data
     ret = 0
+    log(f"Testing combinations of {len(keys)} keys and {len(locks)} locks => {len(keys) * len(locks)} combinations")
     with tqdm(total=len(keys) * len(locks), desc="Testing combinations", leave=False) as pbar:
         for key in keys:
             for lock in locks:
                 if key_lock_fit(key=key, lock=lock):
                     ret += 1
                 pbar.update(1)
-
+    log(f"{ret}/{len(keys) * len(locks)} are possible: {100 * ret / (len(keys) * len(locks)):.2f}%")
     return ret
 
 
 @Task(year=2024, day=_DAY, task=2)
 def task02(data, log: Callable[[AnyStr], None]):
-    return None
+    return "Free"
